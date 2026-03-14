@@ -420,6 +420,16 @@ export type AdminUserSummary = {
   assignedSites: string[]
 }
 
+export type AdminAuditEvent = {
+  id: string
+  action: string
+  entityType: string
+  entityId: string
+  actorName: string | null
+  actorEmail: string | null
+  createdAt: string
+}
+
 export type AdminWorkspace =
   | {
       isAuthorized: false
@@ -435,4 +445,5 @@ export type AdminWorkspace =
       totalUnreadNotifications: number
       roleDistribution: AdminRoleSummary[]
       users: AdminUserSummary[]
+      recentAuditEvents: AdminAuditEvent[]
     }

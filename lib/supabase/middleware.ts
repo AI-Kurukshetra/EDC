@@ -6,6 +6,7 @@ import { getOptionalPublicEnv } from '@/lib/env'
 
 const AUTH_ROUTES = ['/login', '/register']
 const PUBLIC_ROUTES = ['/login', '/register']
+const ADMIN_ROUTE_PREFIX = '/admin'
 
 export async function updateSession(request: NextRequest) {
   const env = getOptionalPublicEnv()
@@ -55,6 +56,21 @@ export async function updateSession(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = '/'
     return NextResponse.redirect(redirectUrl)
+  }
+
+  if (user && (pathname === ADMIN_ROUTE_PREFIX || pathname.startsWith(`${ADMIN_ROUTE_PREFIX}/`))) {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role, is_active')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profileError || profile?.role !== 'super_admin' || profile.is_active !== true) {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/'
+      redirectUrl.searchParams.delete('redirectTo')
+      return NextResponse.redirect(redirectUrl)
+    }
   }
 
   return response

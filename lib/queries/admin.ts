@@ -39,6 +39,15 @@ const NotificationRowSchema = z.object({
   read_at: z.string().nullable(),
 })
 
+const AuditLogRowSchema = z.object({
+  id: PostgresUuidSchema,
+  user_id: PostgresUuidSchema.nullable(),
+  action: z.string(),
+  entity_type: z.string(),
+  entity_id: z.string(),
+  created_at: z.string(),
+})
+
 /** Loads the first platform-admin workspace slice for super admins. */
 export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
   const viewer = await getCurrentSessionProfile()
@@ -52,17 +61,28 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
 
   const supabase = await getServerSupabase()
 
-  const [profilesResult, studiesResult, siteUsersResult, sitesResult, notificationsResult] =
-    await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, full_name, email, role, is_active, created_at')
-        .order('created_at', { ascending: false }),
-      supabase.from('studies').select('id, sponsor_id, status'),
-      supabase.from('site_users').select('id, user_id, site_id'),
-      supabase.from('sites').select('id, name, site_code'),
-      supabase.from('notifications').select('user_id, read_at'),
-    ])
+  const [
+    profilesResult,
+    studiesResult,
+    siteUsersResult,
+    sitesResult,
+    notificationsResult,
+    auditLogsResult,
+  ] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, full_name, email, role, is_active, created_at')
+      .order('created_at', { ascending: false }),
+    supabase.from('studies').select('id, sponsor_id, status'),
+    supabase.from('site_users').select('id, user_id, site_id'),
+    supabase.from('sites').select('id, name, site_code'),
+    supabase.from('notifications').select('user_id, read_at'),
+    supabase
+      .from('audit_logs')
+      .select('id, user_id, action, entity_type, entity_id, created_at')
+      .order('created_at', { ascending: false })
+      .limit(12),
+  ])
 
   if (profilesResult.error) {
     throw new Error(profilesResult.error.message)
@@ -84,13 +104,19 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
     throw new Error(notificationsResult.error.message)
   }
 
+  if (auditLogsResult.error) {
+    throw new Error(auditLogsResult.error.message)
+  }
+
   const profiles = ProfileRowSchema.array().parse(profilesResult.data)
   const studies = StudyRowSchema.array().parse(studiesResult.data)
   const siteUsers = SiteUserRowSchema.array().parse(siteUsersResult.data)
   const sites = SiteRowSchema.array().parse(sitesResult.data)
   const notifications = NotificationRowSchema.array().parse(notificationsResult.data)
+  const auditLogs = AuditLogRowSchema.array().parse(auditLogsResult.data)
 
   const siteById = new Map(sites.map((site) => [site.id, site]))
+  const profileById = new Map(profiles.map((profile) => [profile.id, profile]))
   const siteAssignmentsByUserId = new Map<string, string[]>()
   const sponsoredStudyCountByUserId = new Map<string, number>()
   const unreadNotificationsByUserId = new Map<string, number>()
@@ -150,5 +176,18 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
       sponsoredStudyCount: sponsoredStudyCountByUserId.get(profile.id) ?? 0,
       assignedSites: siteAssignmentsByUserId.get(profile.id) ?? [],
     })),
+    recentAuditEvents: auditLogs.map((auditLog) => {
+      const actor = auditLog.user_id ? profileById.get(auditLog.user_id) : null
+
+      return {
+        id: auditLog.id,
+        action: auditLog.action,
+        entityType: auditLog.entity_type,
+        entityId: auditLog.entity_id,
+        actorName: actor?.full_name ?? null,
+        actorEmail: actor?.email ?? null,
+        createdAt: auditLog.created_at,
+      }
+    }),
   }
 })
