@@ -1,5 +1,6 @@
 import { EmptyState } from '@/components/data-display/EmptyState'
 import { StudiesTable } from '@/components/data-display/StudiesTable'
+import { getCurrentSessionProfile } from '@/lib/queries/account'
 import { getStudies } from '@/lib/queries/studies'
 
 import { StudiesFilters } from './_components/studies-filters'
@@ -15,6 +16,10 @@ type StudiesPageProps = {
 /** Displays the searchable study portfolio and active protocol inventory. */
 export default async function StudiesPage({ searchParams }: StudiesPageProps) {
   const params = await searchParams
+  const profile = await getCurrentSessionProfile()
+  const canCreateStudy =
+    profile?.isActive === true &&
+    (profile.role === 'sponsor' || profile.role === 'data_manager' || profile.role === 'super_admin')
   const studies = await getStudies({
     search: params.search,
     phase:
@@ -55,11 +60,15 @@ export default async function StudiesPage({ searchParams }: StudiesPageProps) {
         <EmptyState
           title="No studies found"
           description="Create your first study to start onboarding sites, forms, subjects, and monitoring workflows."
-          actionHref="/studies/new"
-          actionLabel="Create first study"
+          {...(canCreateStudy
+            ? {
+                actionHref: '/studies/new',
+                actionLabel: 'Create first study',
+              }
+            : {})}
         />
       ) : (
-        <StudiesTable studies={studies} />
+        <StudiesTable studies={studies} canCreateStudy={canCreateStudy} />
       )}
     </div>
   )

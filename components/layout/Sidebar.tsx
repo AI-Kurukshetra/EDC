@@ -21,15 +21,26 @@ const QUICK_ACTIONS = [{ href: '/studies', label: 'Review Queries', icon: Clipbo
 
 type SidebarProps = {
   canAccessAdmin?: boolean
+  canCreateStudy?: boolean
   className?: string
 }
 
 /** Renders the primary dashboard navigation with mobile overlay behavior. */
-export function Sidebar({ canAccessAdmin = false, className }: SidebarProps) {
+export function Sidebar({ canAccessAdmin = false, canCreateStudy = false, className }: SidebarProps) {
   const pathname = usePathname()
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen)
-  const navItems = canAccessAdmin ? NAV_ITEMS : NAV_ITEMS.filter((item) => item.href !== '/admin')
+  const navItems = NAV_ITEMS.filter((item) => {
+    if (item.href === '/admin' && !canAccessAdmin) {
+      return false
+    }
+
+    if (item.href === '/studies/new' && !canCreateStudy) {
+      return false
+    }
+
+    return true
+  })
 
   return (
     <>

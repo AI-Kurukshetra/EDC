@@ -1,10 +1,22 @@
+import { redirect } from 'next/navigation'
+
 import { CreateStudyForm } from './_components/create-study-form'
+import { getCurrentSessionProfile } from '@/lib/queries/account'
 import { getServerSupabase } from '@/lib/supabase/server'
 
 type NewStudyPageProps = Record<string, never>
 
 /** Hosts the study creation wizard for new protocol setup. */
 export default async function NewStudyPage(_props: NewStudyPageProps) {
+  const profile = await getCurrentSessionProfile()
+  const canCreateStudy =
+    profile?.isActive === true &&
+    (profile.role === 'sponsor' || profile.role === 'data_manager' || profile.role === 'super_admin')
+
+  if (!canCreateStudy) {
+    redirect('/studies')
+  }
+
   const supabase = await getServerSupabase()
   const { data } = await supabase
     .from('profiles')

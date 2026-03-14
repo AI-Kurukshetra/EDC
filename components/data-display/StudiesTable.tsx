@@ -19,11 +19,12 @@ const STATUS_VARIANT = {
 
 type StudiesTableProps = {
   studies: StudySummary[]
+  canCreateStudy?: boolean
   className?: string
 }
 
 /** Lists studies in a tabular operational view with quick navigation actions. */
-export function StudiesTable({ studies, className }: StudiesTableProps) {
+export function StudiesTable({ studies, canCreateStudy = false, className }: StudiesTableProps) {
   return (
     <Card className={cn(className)}>
       <CardHeader className="flex flex-col gap-1 border-b border-[color:var(--color-gray-100)] pb-4 md:flex-row md:items-end md:justify-between">
@@ -33,9 +34,11 @@ export function StudiesTable({ studies, className }: StudiesTableProps) {
           </p>
           <CardTitle className="mt-1">Clinical studies</CardTitle>
         </div>
-        <Button asChild size="sm">
-          <Link href="/studies/new">Create study</Link>
-        </Button>
+        {canCreateStudy ? (
+          <Button asChild size="sm">
+            <Link href="/studies/new">Create study</Link>
+          </Button>
+        ) : null}
       </CardHeader>
       <CardContent className="overflow-x-auto px-0 pb-0">
         <table className="min-w-full border-collapse">

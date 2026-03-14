@@ -2,6 +2,7 @@ import { cache } from 'react'
 
 import { z } from 'zod'
 
+import { getCurrentSessionProfile } from '@/lib/queries/account'
 import { getServerSupabase } from '@/lib/supabase/server'
 import { PostgresUuidSchema } from '@/lib/validations/identifiers'
 import {
@@ -9,9 +10,12 @@ import {
   QUERY_PRIORITIES,
   QUERY_STATUSES,
   SITE_STATUSES,
+  STUDY_DOCUMENT_CATEGORIES,
   SUBJECT_STATUSES,
   USER_ROLES,
   type StudyOperationsAudit,
+  type StudyOperationsDocumentsWorkspace,
+  type StudyOperationsDocument,
   type StudyOperationsExport,
   type StudyOperationsExportWorkspace,
   type StudyOperationsQuery,
@@ -129,6 +133,26 @@ const DataExportRowSchema = z.object({
   created_at: z.string(),
 })
 
+const StudyDocumentRowSchema = z.object({
+  id: PostgresUuidSchema,
+  study_id: PostgresUuidSchema,
+  name: z.string(),
+  file_path: z.string(),
+  version: z.number().int().positive(),
+  uploaded_by: PostgresUuidSchema.nullable(),
+  category: z.enum(STUDY_DOCUMENT_CATEGORIES),
+  created_at: z.string(),
+})
+
+const SignatureRowSchema = z.object({
+  id: PostgresUuidSchema,
+  entity_type: z.string(),
+  entity_id: z.string(),
+  signed_by: PostgresUuidSchema,
+  signature_meaning: z.string(),
+  signed_at: z.string(),
+})
+
 function throwIfError(error: { message: string } | null) {
   if (error) {
     throw new Error(error.message)
@@ -161,6 +185,8 @@ type StudyOperationsBase = {
   queryResponses: z.infer<typeof QueryResponseRowSchema>[]
   auditLogs: z.infer<typeof AuditLogRowSchema>[]
   exports: z.infer<typeof DataExportRowSchema>[]
+  documents: z.infer<typeof StudyDocumentRowSchema>[]
+  signatures: z.infer<typeof SignatureRowSchema>[]
 }
 
 const getStudyOperationsBase = cache(async (studyId: string): Promise<StudyOperationsBase> => {
@@ -173,6 +199,7 @@ const getStudyOperationsBase = cache(async (studyId: string): Promise<StudyOpera
     templatesResult,
     exportsResult,
     auditLogsResult,
+    documentsResult,
   ] = await Promise.all([
     supabase.from('studies').select('id, title, sponsor_id').eq('id', studyId).single(),
     supabase
@@ -207,6 +234,11 @@ const getStudyOperationsBase = cache(async (studyId: string): Promise<StudyOpera
       .select('id, user_id, action, entity_type, entity_id, created_at')
       .order('created_at', { ascending: false })
       .limit(200),
+    supabase
+      .from('study_documents')
+      .select('id, study_id, name, file_path, version, uploaded_by, category, created_at')
+      .eq('study_id', studyId)
+      .order('created_at', { ascending: false }),
   ])
 
   throwIfError(studyResult.error)
@@ -215,6 +247,7 @@ const getStudyOperationsBase = cache(async (studyId: string): Promise<StudyOpera
   throwIfError(templatesResult.error)
   throwIfError(exportsResult.error)
   throwIfError(auditLogsResult.error)
+  throwIfError(documentsResult.error)
 
   const study = StudyRowSchema.parse(studyResult.data)
   const sites = SiteRowSchema.array().parse(sitesResult.data)
@@ -222,11 +255,13 @@ const getStudyOperationsBase = cache(async (studyId: string): Promise<StudyOpera
   const templates = TemplateRowSchema.array().parse(templatesResult.data)
   const exports = DataExportRowSchema.array().parse(exportsResult.data)
   const auditLogs = AuditLogRowSchema.array().parse(auditLogsResult.data)
+  const documents = StudyDocumentRowSchema.array().parse(documentsResult.data)
 
   const siteIds = sites.map((site) => site.id)
   const subjectIds = subjects.map((subject) => subject.id)
+  const documentIds = documents.map((document) => document.id)
 
-  const [siteUsersResult, entriesResult, queriesResult] = await Promise.all([
+  const [siteUsersResult, entriesResult, queriesResult, signaturesResult] = await Promise.all([
     siteIds.length > 0
       ? supabase
           .from('site_users')
@@ -252,15 +287,25 @@ const getStudyOperationsBase = cache(async (studyId: string): Promise<StudyOpera
           .in('subject_id', subjectIds)
           .order('updated_at', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
+    documentIds.length > 0
+      ? supabase
+          .from('signatures')
+          .select('id, entity_type, entity_id, signed_by, signature_meaning, signed_at')
+          .eq('entity_type', 'study_document')
+          .in('entity_id', documentIds)
+          .order('signed_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
   ])
 
   throwIfError(siteUsersResult.error)
   throwIfError(entriesResult.error)
   throwIfError(queriesResult.error)
+  throwIfError(signaturesResult.error)
 
   const siteUsers = SiteUserRowSchema.array().parse(siteUsersResult.data)
   const entries = DataEntryRowSchema.array().parse(entriesResult.data)
   const queries = QueryRowSchema.array().parse(queriesResult.data)
+  const signatures = SignatureRowSchema.array().parse(signaturesResult.data)
 
   const queryIds = queries.map((query) => query.id)
 
@@ -313,6 +358,16 @@ const getStudyOperationsBase = cache(async (studyId: string): Promise<StudyOpera
     profileIds.add(exportRow.requested_by)
   }
 
+  for (const document of documents) {
+    if (document.uploaded_by) {
+      profileIds.add(document.uploaded_by)
+    }
+  }
+
+  for (const signature of signatures) {
+    profileIds.add(signature.signed_by)
+  }
+
   for (const auditLog of auditLogs) {
     if (auditLog.user_id) {
       profileIds.add(auditLog.user_id)
@@ -343,6 +398,8 @@ const getStudyOperationsBase = cache(async (studyId: string): Promise<StudyOpera
     queryResponses,
     auditLogs,
     exports,
+    documents,
+    signatures,
   }
 })
 
@@ -646,6 +703,10 @@ export const getStudyAuditWorkspace = cache(
       relevantEntityIds.add(exportRow.id)
     }
 
+    for (const document of data.documents) {
+      relevantEntityIds.add(document.id)
+    }
+
     return data.auditLogs
       .filter((auditLog) => relevantEntityIds.has(auditLog.entity_id))
       .map((auditLog) => {
@@ -661,6 +722,61 @@ export const getStudyAuditWorkspace = cache(
           createdAt: auditLog.created_at,
         }
       })
+  },
+)
+
+export const getStudyDocumentsWorkspace = cache(
+  async (studyId: string): Promise<StudyOperationsDocumentsWorkspace> => {
+    const [data, viewer] = await Promise.all([
+      getStudyOperationsBase(studyId),
+      getCurrentSessionProfile(),
+    ])
+    const { profileById } = buildLookupMaps(data)
+
+    const signaturesByDocumentId = new Map<string, z.infer<typeof SignatureRowSchema>[]>()
+
+    for (const signature of data.signatures) {
+      const existing = signaturesByDocumentId.get(signature.entity_id) ?? []
+      existing.push(signature)
+      signaturesByDocumentId.set(signature.entity_id, existing)
+    }
+
+    const documents: StudyOperationsDocument[] = data.documents.map((document) => {
+      const uploader = document.uploaded_by ? profileById.get(document.uploaded_by) : null
+      const documentSignatures = signaturesByDocumentId.get(document.id) ?? []
+      const latestSignature = documentSignatures[0] ?? null
+      const latestSigner = latestSignature ? profileById.get(latestSignature.signed_by) : null
+
+      return {
+        id: document.id,
+        name: document.name,
+        filePath: document.file_path,
+        version: document.version,
+        category: document.category,
+        uploadedByName: uploader?.full_name ?? null,
+        uploadedByEmail: uploader?.email ?? null,
+        createdAt: document.created_at,
+        signatureCount: documentSignatures.length,
+        latestSignedAt: latestSignature?.signed_at ?? null,
+        latestSignedByName: latestSigner?.full_name ?? null,
+        latestSignedByEmail: latestSigner?.email ?? null,
+        latestSignatureMeaning: latestSignature?.signature_meaning ?? null,
+      }
+    })
+
+    const canManageDocuments =
+      viewer?.isActive === true &&
+      (viewer.id === data.study.sponsor_id ||
+        viewer.role === 'super_admin' ||
+        viewer.role === 'data_manager')
+
+    return {
+      studyId: data.study.id,
+      studyTitle: data.study.title,
+      canManageDocuments,
+      viewerRole: viewer?.role ?? null,
+      documents,
+    }
   },
 )
 

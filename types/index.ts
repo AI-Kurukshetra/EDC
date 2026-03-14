@@ -317,6 +317,30 @@ export type StudyOperationsAudit = {
   createdAt: string
 }
 
+export type StudyOperationsDocument = {
+  id: string
+  name: string
+  filePath: string
+  version: number
+  category: StudyDocumentCategory
+  uploadedByName: string | null
+  uploadedByEmail: string | null
+  createdAt: string
+  signatureCount: number
+  latestSignedAt: string | null
+  latestSignedByName: string | null
+  latestSignedByEmail: string | null
+  latestSignatureMeaning: string | null
+}
+
+export type StudyOperationsDocumentsWorkspace = {
+  studyId: string
+  studyTitle: string
+  canManageDocuments: boolean
+  viewerRole: UserRole | null
+  documents: StudyOperationsDocument[]
+}
+
 export type StudyOperationsExport = {
   id: string
   format: 'csv' | 'json' | 'cdisc'

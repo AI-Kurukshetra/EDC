@@ -7,6 +7,7 @@ import { getOptionalPublicEnv } from '@/lib/env'
 const AUTH_ROUTES = ['/login', '/register']
 const PUBLIC_ROUTES = ['/login', '/register', '/reset-password', '/auth/callback']
 const ADMIN_ROUTE_PREFIX = '/admin'
+const STUDY_CREATE_ROUTE = '/studies/new'
 
 export async function updateSession(request: NextRequest) {
   const env = getOptionalPublicEnv()
@@ -58,16 +59,36 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  if (user && (pathname === ADMIN_ROUTE_PREFIX || pathname.startsWith(`${ADMIN_ROUTE_PREFIX}/`))) {
+  const isAdminRoute = pathname === ADMIN_ROUTE_PREFIX || pathname.startsWith(`${ADMIN_ROUTE_PREFIX}/`)
+  const isStudyCreateRoute = pathname === STUDY_CREATE_ROUTE
+
+  if (user && (isAdminRoute || isStudyCreateRoute)) {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role, is_active')
       .eq('id', user.id)
       .maybeSingle()
 
-    if (profileError || profile?.role !== 'super_admin' || profile.is_active !== true) {
+    if (profileError || !profile || profile.is_active !== true) {
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = '/'
+      redirectUrl.searchParams.delete('redirectTo')
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    if (isAdminRoute && profile.role !== 'super_admin') {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/'
+      redirectUrl.searchParams.delete('redirectTo')
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    if (
+      isStudyCreateRoute &&
+      !['sponsor', 'data_manager', 'super_admin'].includes(profile.role)
+    ) {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/studies'
       redirectUrl.searchParams.delete('redirectTo')
       return NextResponse.redirect(redirectUrl)
     }

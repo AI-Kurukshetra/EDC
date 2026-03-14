@@ -13,10 +13,15 @@ type DashboardLayoutProps = {
 export default async function DashboardLayout({ children }: DashboardLayoutProps) {
   const profile = await getCurrentSessionProfile()
   const canAccessAdmin = profile?.role === 'super_admin' && profile?.isActive === true
+  const canCreateStudy = Boolean(
+    profile &&
+      profile.isActive &&
+      ['sponsor', 'data_manager', 'super_admin'].includes(profile.role),
+  )
 
   return (
     <div className="min-h-screen">
-      <Sidebar canAccessAdmin={canAccessAdmin} />
+      <Sidebar canAccessAdmin={canAccessAdmin} canCreateStudy={canCreateStudy} />
       <div className="lg:pl-80">
         <TopNav profile={profile} />
         <main className="px-4 py-6 xl:px-8">
