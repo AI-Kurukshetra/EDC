@@ -34,6 +34,12 @@ import {
 const DEFAULT_STEPS = ['basics', 'sites', 'team'] as const
 
 type CreateStudyFormProps = {
+  teamUserOptions: {
+    id: string
+    fullName: string
+    email: string
+    role: string
+  }[]
   className?: string
 }
 
@@ -42,7 +48,7 @@ function getFieldArrayIndex(index: number): `${number}` {
 }
 
 /** Guides study setup across protocol basics, site rollout, and team assignment. */
-export function CreateStudyForm({ className }: CreateStudyFormProps) {
+export function CreateStudyForm({ teamUserOptions, className }: CreateStudyFormProps) {
   const router = useRouter()
   const [activeStep, setActiveStep] = useState<(typeof DEFAULT_STEPS)[number]>('basics')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -403,10 +409,23 @@ export function CreateStudyForm({ className }: CreateStudyFormProps) {
                         name={`teamAssignments.${assignmentIndex}.userId` as const}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>User id</FormLabel>
+                            <FormLabel>User</FormLabel>
                             <FormControl>
-                              <Input placeholder="Supabase profile UUID" {...field} />
+                              <select
+                                className="flex h-11 w-full rounded-xl border border-[color:var(--color-gray-200)] bg-white px-3 py-2 text-sm text-[color:var(--color-gray-900)] shadow-sm outline-none focus:border-[color:var(--color-navy-700)] focus:ring-2 focus:ring-[color:var(--color-navy-100)]"
+                                {...field}
+                              >
+                                <option value="">Select user</option>
+                                {teamUserOptions.map((userOption) => (
+                                  <option key={userOption.id} value={userOption.id}>
+                                    {`${userOption.fullName} (${userOption.email}) • ${userOption.role.replaceAll('_', ' ')}`}
+                                  </option>
+                                ))}
+                              </select>
                             </FormControl>
+                            <FormDescription>
+                              Choose a user by name. The platform stores the profile UUID for you.
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -478,7 +497,7 @@ export function CreateStudyForm({ className }: CreateStudyFormProps) {
           </TabsContent>
         </Tabs>
 
-        <div className="flex flex-wrap justify-between gap-3">
+        <div className="sticky bottom-4 z-10 flex flex-wrap justify-between gap-3 rounded-2xl border border-[color:var(--color-gray-200)] bg-white/95 px-4 py-3 backdrop-blur-sm">
           <div className="flex gap-3">
             <Button
               disabled={activeStep === 'basics'}

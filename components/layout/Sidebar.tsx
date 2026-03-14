@@ -20,14 +20,16 @@ const NAV_ITEMS = [
 const QUICK_ACTIONS = [{ href: '/studies', label: 'Review Queries', icon: ClipboardCheck }]
 
 type SidebarProps = {
+  canAccessAdmin?: boolean
   className?: string
 }
 
 /** Renders the primary dashboard navigation with mobile overlay behavior. */
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ canAccessAdmin = false, className }: SidebarProps) {
   const pathname = usePathname()
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen)
+  const navItems = canAccessAdmin ? NAV_ITEMS : NAV_ITEMS.filter((item) => item.href !== '/admin')
 
   return (
     <>
@@ -72,7 +74,7 @@ export function Sidebar({ className }: SidebarProps) {
         </div>
 
         <nav className="mt-8 flex flex-col gap-2">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const isActive =
               pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
 

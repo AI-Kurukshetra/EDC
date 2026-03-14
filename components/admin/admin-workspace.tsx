@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { registerAdminStudyDocument } from '@/lib/actions/admin-documents'
 import { sendAdminNotification } from '@/lib/actions/admin-notifications'
 import { provisionAdminUser } from '@/lib/actions/admin-provision-users'
 import {
@@ -25,7 +26,10 @@ import { generateAdminUserAccessLink } from '@/lib/actions/admin-user-links'
 import { updateAdminUserAccess } from '@/lib/actions/admin-users'
 import { formatDateTime } from '@/lib/utils/format'
 import {
+  STUDY_DOCUMENT_CATEGORIES,
   type AdminSiteOption,
+  type AdminDocumentSummary,
+  type AdminSignatureSummary,
   NOTIFICATION_TYPES,
   QUERY_PRIORITIES,
   STUDY_STATUSES,
@@ -35,6 +39,7 @@ import {
   type AdminWorkspace,
   type NotificationType,
   type QueryPriority,
+  type StudyDocumentCategory,
   type StudyStatus,
   type UserRole,
 } from '@/types'
@@ -54,6 +59,13 @@ const NOTIFICATION_PRIORITY_VARIANTS: Record<QueryPriority, 'muted' | 'warning' 
   normal: 'warning',
   high: 'danger',
 }
+
+const EXPORT_STATUS_VARIANTS = {
+  queued: 'muted',
+  processing: 'warning',
+  completed: 'success',
+  failed: 'danger',
+} as const
 
 const STUDY_STATUS_VARIANTS: Record<
   StudyStatus,
@@ -88,6 +100,15 @@ type AdminUserAccessLinkControlsProps = {
   user: AdminUserSummary
 }
 
+type AdminDocumentRegisterProps = {
+  documents: AdminDocumentSummary[]
+  studies: AdminStudySummary[]
+}
+
+type AdminSignatureRegisterProps = {
+  signatures: AdminSignatureSummary[]
+}
+
 type AdminStudyGovernanceControlsProps = {
   sponsorOptions: AdminUserSummary[]
   study: AdminStudySummary
@@ -106,6 +127,14 @@ function formatNotificationType(type: NotificationType) {
 
 function formatStudyStatus(status: StudyStatus) {
   return status.replaceAll('_', ' ')
+}
+
+function formatDocumentCategory(category: StudyDocumentCategory) {
+  return category.replaceAll('_', ' ')
+}
+
+function formatEntityType(entityType: string) {
+  return entityType.replaceAll('_', ' ')
 }
 
 function getAudienceCount(
@@ -515,6 +544,502 @@ function AdminUserAccessLinkControls({ user }: AdminUserAccessLinkControlsProps)
   )
 }
 
+function AdminDocumentRegister({ documents, studies }: AdminDocumentRegisterProps) {
+  const router = useRouter()
+  const [studyId, setStudyId] = useState(studies[0]?.id ?? '')
+  const [name, setName] = useState('')
+  const [filePath, setFilePath] = useState('')
+  const [category, setCategory] = useState<StudyDocumentCategory>('general')
+  const [version, setVersion] = useState('1')
+  const [searchValue, setSearchValue] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<'all' | StudyDocumentCategory>('all')
+  const [isSaving, startSavingTransition] = useTransition()
+  const deferredSearchValue = useDeferredValue(searchValue)
+  const normalizedSearchValue = deferredSearchValue.trim().toLowerCase()
+  const filteredDocuments = documents.filter((document) => {
+    const matchesSearch =
+      normalizedSearchValue.length === 0 ||
+      [
+        document.name,
+        document.studyTitle,
+        document.protocolNumber,
+        document.filePath,
+        document.category,
+      ].some((value) => value.toLowerCase().includes(normalizedSearchValue))
+    const matchesCategory = categoryFilter === 'all' || document.category === categoryFilter
+
+    return matchesSearch && matchesCategory
+  })
+  const activeFilterCount =
+    Number(searchValue.trim().length > 0) + Number(categoryFilter !== 'all')
+  const selectedStudy = studies.find((study) => study.id === studyId) ?? null
+
+  function resetComposer() {
+    setStudyId(studies[0]?.id ?? '')
+    setName('')
+    setFilePath('')
+    setCategory('general')
+    setVersion('1')
+  }
+
+  function handleRegisterDocument() {
+    if (!selectedStudy) {
+      return
+    }
+
+    startSavingTransition(() => {
+      void (async () => {
+        const result = await registerAdminStudyDocument({
+          studyId: selectedStudy.id,
+          name,
+          filePath,
+          category,
+          version,
+        })
+
+        if (!result.success) {
+          toast.error(
+            typeof result.error === 'string' ? result.error : 'Unable to register document.',
+          )
+          return
+        }
+
+        toast.success(`Registered ${name} for ${selectedStudy.protocolNumber}.`)
+        resetComposer()
+        router.refresh()
+      })()
+    })
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Document register</CardTitle>
+        <CardDescription>
+          Record study document metadata and maintain a platform-wide governance register.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+          <div className="space-y-4 rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] p-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+                <span className="font-medium">Study</span>
+                <select
+                  className={SELECT_CLASS_NAME}
+                  disabled={isSaving || studies.length === 0}
+                  value={studyId}
+                  onChange={(event) => {
+                    setStudyId(event.target.value)
+                  }}
+                >
+                  {studies.length === 0 ? <option value="">No studies available</option> : null}
+                  {studies.map((study) => (
+                    <option key={study.id} value={study.id}>
+                      {study.protocolNumber} - {study.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+                <span className="font-medium">Category</span>
+                <select
+                  className={SELECT_CLASS_NAME}
+                  disabled={isSaving}
+                  value={category}
+                  onChange={(event) => {
+                    setCategory(event.target.value as StudyDocumentCategory)
+                  }}
+                >
+                  {STUDY_DOCUMENT_CATEGORIES.map((categoryOption) => (
+                    <option key={categoryOption} value={categoryOption}>
+                      {formatDocumentCategory(categoryOption)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+              <span className="font-medium">Document name</span>
+              <Input
+                disabled={isSaving}
+                placeholder="Protocol amendment 02"
+                value={name}
+                onChange={(event) => {
+                  setName(event.target.value)
+                }}
+              />
+            </label>
+
+            <div className="grid gap-3 md:grid-cols-[1fr_7rem]">
+              <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+                <span className="font-medium">Document path</span>
+                <Input
+                  disabled={isSaving}
+                  placeholder="study-documents/CDH-001/protocol-amendment-02.pdf"
+                  value={filePath}
+                  onChange={(event) => {
+                    setFilePath(event.target.value)
+                  }}
+                />
+              </label>
+
+              <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+                <span className="font-medium">Version</span>
+                <Input
+                  disabled={isSaving}
+                  inputMode="numeric"
+                  value={version}
+                  onChange={(event) => {
+                    setVersion(event.target.value)
+                  }}
+                />
+              </label>
+            </div>
+
+            <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-white px-4 py-4 text-sm text-[color:var(--color-gray-700)]">
+              <p className="font-medium text-[color:var(--color-gray-900)]">
+                This register records document metadata, not binary upload bytes.
+              </p>
+              <p className="mt-2">
+                Store the file in your existing bucket or external repository first, then log the
+                storage path or canonical location here.
+              </p>
+              {selectedStudy ? (
+                <p className="mt-2 text-[color:var(--color-gray-600)]">
+                  Selected study: {selectedStudy.protocolNumber} with {selectedStudy.openQueryCount}{' '}
+                  open queries and {selectedStudy.exportJobCount} export jobs.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+              <Button disabled={isSaving} variant="outline" onClick={resetComposer}>
+                Reset
+              </Button>
+              <Button
+                disabled={
+                  isSaving ||
+                  !selectedStudy ||
+                  name.trim().length < 3 ||
+                  filePath.trim().length < 3 ||
+                  Number(version) < 1
+                }
+                onClick={handleRegisterDocument}
+              >
+                {isSaving ? 'Registering...' : 'Register document'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid gap-3 rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] p-4 lg:grid-cols-[1fr_14rem_auto]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[color:var(--color-gray-400)]" />
+                <Input
+                  className="h-10 pl-10"
+                  placeholder="Search document register"
+                  value={searchValue}
+                  onChange={(event) => {
+                    setSearchValue(event.target.value)
+                  }}
+                />
+              </div>
+
+              <select
+                className={SELECT_CLASS_NAME}
+                value={categoryFilter}
+                onChange={(event) => {
+                  setCategoryFilter(event.target.value as 'all' | StudyDocumentCategory)
+                }}
+              >
+                <option value="all">All categories</option>
+                {STUDY_DOCUMENT_CATEGORIES.map((categoryOption) => (
+                  <option key={categoryOption} value={categoryOption}>
+                    {formatDocumentCategory(categoryOption)}
+                  </option>
+                ))}
+              </select>
+
+              <Button
+                disabled={activeFilterCount === 0}
+                variant="outline"
+                onClick={() => {
+                  setSearchValue('')
+                  setCategoryFilter('all')
+                }}
+              >
+                Reset register filters
+              </Button>
+            </div>
+
+            <div className="flex flex-col gap-2 text-sm text-[color:var(--color-gray-600)] sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                Showing {filteredDocuments.length} of {documents.length} document records.
+              </p>
+              <p>
+                {activeFilterCount > 0
+                  ? `${String(activeFilterCount)} filters active`
+                  : 'No filters applied'}
+              </p>
+            </div>
+
+            {filteredDocuments.length > 0 ? (
+              filteredDocuments.map((document) => (
+                <div
+                  key={document.id}
+                  className="rounded-2xl border border-[color:var(--color-gray-200)] bg-white px-4 py-4"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium text-[color:var(--color-gray-900)]">
+                          {document.name}
+                        </p>
+                        <Badge variant="muted">{formatDocumentCategory(document.category)}</Badge>
+                        <Badge variant="default">v{document.version}</Badge>
+                      </div>
+                      <p className="mt-2 text-sm text-[color:var(--color-gray-600)]">
+                        {document.studyTitle} ({document.protocolNumber})
+                      </p>
+                      <p className="mt-2 font-[family-name:var(--font-mono)] text-xs text-[color:var(--color-gray-600)]">
+                        {document.filePath}
+                      </p>
+                    </div>
+
+                    <div className="grid gap-2 text-sm text-[color:var(--color-gray-700)] sm:grid-cols-2 lg:min-w-[22rem]">
+                      <div className="rounded-xl bg-[color:var(--color-gray-50)] px-3 py-3">
+                        <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                          Uploaded by
+                        </p>
+                        <p className="mt-1 font-medium">
+                          {document.uploadedByName ?? 'System record'}
+                        </p>
+                        <p className="mt-1 text-xs text-[color:var(--color-gray-600)]">
+                          {document.uploadedByEmail ?? 'No direct uploader email'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-[color:var(--color-gray-50)] px-3 py-3">
+                        <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                          Registered
+                        </p>
+                        <p className="mt-1 font-medium">{formatDateTime(document.createdAt)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <EmptyState
+                title="No document records match the current filters"
+                description="Adjust the register search or category filter to widen the governance view."
+              />
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function AdminSignatureRegister({ signatures }: AdminSignatureRegisterProps) {
+  const [searchValue, setSearchValue] = useState('')
+  const [entityTypeFilter, setEntityTypeFilter] = useState<'all' | string>('all')
+  const deferredSearchValue = useDeferredValue(searchValue)
+  const normalizedSearchValue = deferredSearchValue.trim().toLowerCase()
+  const entityTypeOptions = Array.from(new Set(signatures.map((signature) => signature.entityType)))
+    .sort()
+  const filteredSignatures = signatures.filter((signature) => {
+    const matchesSearch =
+      normalizedSearchValue.length === 0 ||
+      [
+        signature.entityType,
+        signature.entityId,
+        signature.entityLabel ?? '',
+        signature.entityContext ?? '',
+        signature.signatureMeaning,
+        signature.signedByName ?? '',
+        signature.signedByEmail ?? '',
+        signature.certificateHash,
+      ].some((value) => value.toLowerCase().includes(normalizedSearchValue))
+    const matchesEntityType =
+      entityTypeFilter === 'all' || signature.entityType === entityTypeFilter
+
+    return matchesSearch && matchesEntityType
+  })
+  const activeFilterCount =
+    Number(searchValue.trim().length > 0) + Number(entityTypeFilter !== 'all')
+  const uniqueSignerCount = new Set(signatures.map((signature) => signature.signedByEmail)).size
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Signature oversight</CardTitle>
+        <CardDescription>
+          Review immutable signature records, signer identity, and certificate hashes across the
+          platform.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-4">
+            <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+              Signature records
+            </p>
+            <p className="mt-1 text-lg font-semibold text-[color:var(--color-gray-900)]">
+              {signatures.length}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-4">
+            <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+              Signers represented
+            </p>
+            <p className="mt-1 text-lg font-semibold text-[color:var(--color-gray-900)]">
+              {uniqueSignerCount}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-4">
+            <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+              Entity types
+            </p>
+            <p className="mt-1 text-lg font-semibold text-[color:var(--color-gray-900)]">
+              {entityTypeOptions.length}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] p-4 lg:grid-cols-[1fr_14rem_auto]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[color:var(--color-gray-400)]" />
+            <Input
+              className="h-10 pl-10"
+              placeholder="Search signatures, signers, entity ids, or certificate hashes"
+              value={searchValue}
+              onChange={(event) => {
+                setSearchValue(event.target.value)
+              }}
+            />
+          </div>
+
+          <select
+            className={SELECT_CLASS_NAME}
+            value={entityTypeFilter}
+            onChange={(event) => {
+              setEntityTypeFilter(event.target.value)
+            }}
+          >
+            <option value="all">All entity types</option>
+            {entityTypeOptions.map((entityType) => (
+              <option key={entityType} value={entityType}>
+                {formatEntityType(entityType)}
+              </option>
+            ))}
+          </select>
+
+          <Button
+            disabled={activeFilterCount === 0}
+            variant="outline"
+            onClick={() => {
+              setSearchValue('')
+              setEntityTypeFilter('all')
+            }}
+          >
+            Reset signature filters
+          </Button>
+        </div>
+
+        <div className="flex flex-col gap-2 text-sm text-[color:var(--color-gray-600)] sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Showing {filteredSignatures.length} of {signatures.length} signature records.
+          </p>
+          <p>
+            {activeFilterCount > 0
+              ? `${String(activeFilterCount)} filters active`
+              : 'No filters applied'}
+          </p>
+        </div>
+
+        {filteredSignatures.length > 0 ? (
+          filteredSignatures.map((signature) => (
+            <div
+              key={signature.id}
+              className="rounded-2xl border border-[color:var(--color-gray-200)] bg-white px-4 py-4"
+            >
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-[color:var(--color-gray-900)]">
+                      {signature.entityLabel ?? signature.entityId}
+                    </p>
+                    <Badge variant="muted">{formatEntityType(signature.entityType)}</Badge>
+                  </div>
+
+                  <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-3">
+                    <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                      Signature meaning
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-[color:var(--color-gray-800)]">
+                      {signature.signatureMeaning}
+                    </p>
+                  </div>
+
+                  {signature.entityContext ? (
+                    <p className="text-sm text-[color:var(--color-gray-600)]">
+                      {signature.entityContext}
+                    </p>
+                  ) : null}
+
+                  <p className="font-[family-name:var(--font-mono)] text-xs text-[color:var(--color-gray-600)]">
+                    {signature.entityId}
+                  </p>
+                </div>
+
+                <div className="grid gap-2 text-sm text-[color:var(--color-gray-700)] sm:grid-cols-2 lg:min-w-[24rem]">
+                  <div className="rounded-xl bg-[color:var(--color-gray-50)] px-3 py-3">
+                    <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                      Signed by
+                    </p>
+                    <p className="mt-1 font-medium">{signature.signedByName ?? 'Unknown user'}</p>
+                    <p className="mt-1 text-xs text-[color:var(--color-gray-600)]">
+                      {signature.signedByEmail ?? 'No direct email record'}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-[color:var(--color-gray-50)] px-3 py-3">
+                    <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                      Signed at
+                    </p>
+                    <p className="mt-1 font-medium">{formatDateTime(signature.signedAt)}</p>
+                    <p className="mt-1 text-xs text-[color:var(--color-gray-600)]">
+                      Recorded {formatDateTime(signature.createdAt)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-[color:var(--color-gray-50)] px-3 py-3 sm:col-span-2">
+                    <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                      Certificate hash
+                    </p>
+                    <p className="mt-1 break-all font-[family-name:var(--font-mono)] text-xs text-[color:var(--color-gray-700)]">
+                      {signature.certificateHash}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <EmptyState
+            title="No signature records match the current filters"
+            description="Signed workflows will surface here once platform actions begin recording immutable signatures."
+          />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 function AdminStudyGovernanceControls({
   sponsorOptions,
   study,
@@ -604,6 +1129,8 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceProps) {
   const [searchValue, setSearchValue] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all')
   const [statusFilter, setStatusFilter] = useState<UserStatusFilter>('all')
+  const [studySearchValue, setStudySearchValue] = useState('')
+  const [studyStatusFilter, setStudyStatusFilter] = useState<'all' | StudyStatus>('all')
   const [provisionFullName, setProvisionFullName] = useState('')
   const [provisionEmail, setProvisionEmail] = useState('')
   const [provisionRole, setProvisionRole] = useState<UserRole>('coordinator')
@@ -621,17 +1148,19 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceProps) {
   const [isProvisioning, startProvisionTransition] = useTransition()
   const [isDispatching, startDispatchTransition] = useTransition()
   const deferredSearchValue = useDeferredValue(searchValue)
+  const deferredStudySearchValue = useDeferredValue(studySearchValue)
 
   if (!workspace.isAuthorized) {
     return (
       <EmptyState
         title="Admin access required"
-        description="This Phase 2 workspace is currently reserved for super-admin accounts."
+        description="This workspace is currently reserved for super-admin accounts."
       />
     )
   }
 
   const normalizedSearchValue = deferredSearchValue.trim().toLowerCase()
+  const normalizedStudySearchValue = deferredStudySearchValue.trim().toLowerCase()
   const filteredUsers = workspace.users.filter((user) => {
     const matchesSearch =
       normalizedSearchValue.length === 0 ||
@@ -648,7 +1177,31 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceProps) {
     Number(searchValue.trim().length > 0) +
     Number(roleFilter !== 'all') +
     Number(statusFilter !== 'all')
+  const filteredStudies = workspace.studies.filter((study) => {
+    const matchesSearch =
+      normalizedStudySearchValue.length === 0 ||
+      [study.title, study.protocolNumber, study.sponsorName ?? '', study.sponsorEmail ?? ''].some(
+        (value) => value.toLowerCase().includes(normalizedStudySearchValue),
+      )
+    const matchesStatus = studyStatusFilter === 'all' || study.status === studyStatusFilter
+
+    return matchesSearch && matchesStatus
+  })
+  const activeStudyFilterCount =
+    Number(studySearchValue.trim().length > 0) + Number(studyStatusFilter !== 'all')
   const activeUserCount = workspace.users.filter((user) => user.isActive).length
+  const totalOpenStudyQueries = workspace.studies.reduce(
+    (count, study) => count + study.openQueryCount,
+    0,
+  )
+  const totalHighPriorityStudyQueries = workspace.studies.reduce(
+    (count, study) => count + study.highPriorityOpenQueryCount,
+    0,
+  )
+  const totalStudyExports = workspace.studies.reduce(
+    (count, study) => count + study.exportJobCount,
+    0,
+  )
   const sponsorOptions = workspace.users.filter(
     (user) => user.isActive && (user.role === 'sponsor' || user.role === 'super_admin'),
   )
@@ -1254,8 +1807,86 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {workspace.studies.length > 0 ? (
-            workspace.studies.map((study) => (
+          <div className="grid gap-3 rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] p-4 lg:grid-cols-[1fr_14rem_auto]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[color:var(--color-gray-400)]" />
+              <Input
+                className="h-10 pl-10"
+                placeholder="Search studies, protocols, or sponsor owners"
+                value={studySearchValue}
+                onChange={(event) => {
+                  setStudySearchValue(event.target.value)
+                }}
+              />
+            </div>
+
+            <select
+              className={SELECT_CLASS_NAME}
+              value={studyStatusFilter}
+              onChange={(event) => {
+                setStudyStatusFilter(event.target.value as 'all' | StudyStatus)
+              }}
+            >
+              <option value="all">All study statuses</option>
+              {STUDY_STATUSES.map((statusOption) => (
+                <option key={statusOption} value={statusOption}>
+                  {formatStudyStatus(statusOption)}
+                </option>
+              ))}
+            </select>
+
+            <Button
+              disabled={activeStudyFilterCount === 0}
+              variant="outline"
+              onClick={() => {
+                setStudySearchValue('')
+                setStudyStatusFilter('all')
+              }}
+            >
+              Reset study filters
+            </Button>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-4">
+              <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                Open queries
+              </p>
+              <p className="mt-1 text-lg font-semibold text-[color:var(--color-gray-900)]">
+                {totalOpenStudyQueries}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-4">
+              <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                High-priority queries
+              </p>
+              <p className="mt-1 text-lg font-semibold text-[color:var(--color-gray-900)]">
+                {totalHighPriorityStudyQueries}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-4">
+              <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                Export jobs
+              </p>
+              <p className="mt-1 text-lg font-semibold text-[color:var(--color-gray-900)]">
+                {totalStudyExports}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 text-sm text-[color:var(--color-gray-600)] sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              Showing {filteredStudies.length} of {workspace.studies.length} studies.
+            </p>
+            <p>
+              {activeStudyFilterCount > 0
+                ? `${String(activeStudyFilterCount)} study filters active`
+                : 'No study filters applied'}
+            </p>
+          </div>
+
+          {filteredStudies.length > 0 ? (
+            filteredStudies.map((study) => (
               <div
                 key={study.id}
                 className="rounded-2xl border border-[color:var(--color-gray-200)] bg-white px-4 py-4"
@@ -1295,17 +1926,60 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceProps) {
                   </div>
                 </div>
 
+                <div className="mt-4 grid gap-3 text-sm text-[color:var(--color-gray-700)] md:grid-cols-3">
+                  <div className="rounded-xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-3 py-3">
+                    <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                      Open queries
+                    </p>
+                    <p className="mt-1 font-medium">{study.openQueryCount}</p>
+                    <p className="mt-1 text-xs text-[color:var(--color-gray-600)]">
+                      {study.highPriorityOpenQueryCount} high priority
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-3 py-3">
+                    <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                      Export jobs
+                    </p>
+                    <p className="mt-1 font-medium">{study.exportJobCount}</p>
+                    <div className="mt-1">
+                      {study.lastExportStatus ? (
+                        <Badge variant={EXPORT_STATUS_VARIANTS[study.lastExportStatus]}>
+                          {study.lastExportStatus}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-[color:var(--color-gray-600)]">
+                          No exports requested
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-3 py-3">
+                    <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                      Latest export
+                    </p>
+                    <p className="mt-1 font-medium">
+                      {study.lastExportRequestedAt
+                        ? formatDateTime(study.lastExportRequestedAt)
+                        : 'Not requested'}
+                    </p>
+                  </div>
+                </div>
+
                 <AdminStudyGovernanceControls sponsorOptions={sponsorOptions} study={study} />
               </div>
             ))
           ) : (
             <EmptyState
-              title="No studies available"
-              description="Studies will appear here as soon as they are created in the platform."
+              title="No studies match the current filters"
+              description="Adjust the study search term or status filter to widen the oversight view."
             />
           )}
         </CardContent>
       </Card>
+
+      <AdminDocumentRegister documents={workspace.documents} studies={workspace.studies} />
+
+      <AdminSignatureRegister signatures={workspace.signatures} />
 
       <Card>
         <CardHeader>

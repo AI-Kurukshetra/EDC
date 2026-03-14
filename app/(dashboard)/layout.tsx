@@ -12,10 +12,11 @@ type DashboardLayoutProps = {
 /** Composes the authenticated dashboard shell with navigation and session context. */
 export default async function DashboardLayout({ children }: DashboardLayoutProps) {
   const profile = await getCurrentSessionProfile()
+  const canAccessAdmin = profile?.role === 'super_admin' && profile?.isActive === true
 
   return (
     <div className="min-h-screen">
-      <Sidebar />
+      <Sidebar canAccessAdmin={canAccessAdmin} />
       <div className="lg:pl-80">
         <TopNav profile={profile} />
         <main className="px-4 py-6 xl:px-8">

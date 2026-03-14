@@ -90,6 +90,17 @@ export const NOTIFICATION_TYPES = ['announcement', 'task', 'alert', 'reminder'] 
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
+export const STUDY_DOCUMENT_CATEGORIES = [
+  'general',
+  'protocol',
+  'consent',
+  'monitoring',
+  'safety',
+  'report',
+] as const
+
+export type StudyDocumentCategory = (typeof STUDY_DOCUMENT_CATEGORIES)[number]
+
 export type CrfFieldCondition = {
   fieldId: string
   operator: CrfConditionOperator
@@ -475,6 +486,11 @@ export type AdminStudySummary = {
   sponsorEmail: string | null
   siteCount: number
   subjectCount: number
+  openQueryCount: number
+  highPriorityOpenQueryCount: number
+  exportJobCount: number
+  lastExportStatus: 'queued' | 'processing' | 'completed' | 'failed' | null
+  lastExportRequestedAt: string | null
 }
 
 export type AdminNotificationSummary = {
@@ -489,6 +505,34 @@ export type AdminNotificationSummary = {
   priority: QueryPriority
   readAt: string | null
   createdAt: string
+}
+
+export type AdminDocumentSummary = {
+  id: string
+  studyId: string
+  studyTitle: string
+  protocolNumber: string
+  name: string
+  filePath: string
+  version: number
+  category: StudyDocumentCategory
+  uploadedByName: string | null
+  uploadedByEmail: string | null
+  createdAt: string
+}
+
+export type AdminSignatureSummary = {
+  id: string
+  entityType: string
+  entityId: string
+  entityLabel: string | null
+  entityContext: string | null
+  signatureMeaning: string
+  signedByName: string | null
+  signedByEmail: string | null
+  signedAt: string
+  createdAt: string
+  certificateHash: string
 }
 
 export type AdminWorkspace =
@@ -510,4 +554,6 @@ export type AdminWorkspace =
       studies: AdminStudySummary[]
       sites: AdminSiteOption[]
       recentNotifications: AdminNotificationSummary[]
+      documents: AdminDocumentSummary[]
+      signatures: AdminSignatureSummary[]
     }

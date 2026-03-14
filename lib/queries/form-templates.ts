@@ -35,6 +35,48 @@ function mapFormTemplate(row: z.infer<typeof FormTemplateRowSchema>): StudyFormT
   }
 }
 
+function toSafeFormTemplate(
+  row: unknown,
+  index: number,
+): StudyFormTemplate | null {
+  const parsedRow = FormTemplateRowSchema.safeParse(row)
+
+  if (!parsedRow.success) {
+    console.warn(
+      `Skipping invalid form_templates row at index ${String(index)} due to shape mismatch.`,
+      parsedRow.error.flatten().fieldErrors,
+    )
+    return null
+  }
+
+  const schemaResult = CrfSchemaSchema.safeParse(parsedRow.data.schema)
+  if (!schemaResult.success) {
+    console.warn(
+      `Skipping form template ${parsedRow.data.id} due to invalid schema payload.`,
+      schemaResult.error.flatten().fieldErrors,
+    )
+    return null
+  }
+
+  const visitScheduleResult = parsedRow.data.visit_schedule
+    ? VisitScheduleSchema.safeParse(parsedRow.data.visit_schedule)
+    : { success: true as const, data: null }
+
+  if (!visitScheduleResult.success) {
+    console.warn(
+      `Skipping form template ${parsedRow.data.id} due to invalid visit_schedule payload.`,
+      visitScheduleResult.error.flatten().fieldErrors,
+    )
+    return null
+  }
+
+  return mapFormTemplate({
+    ...parsedRow.data,
+    schema: schemaResult.data,
+    visit_schedule: visitScheduleResult.data,
+  })
+}
+
 export const getStudyFormTemplates = cache(
   async (studyId: string): Promise<StudyFormTemplate[]> => {
     const supabase = await getServerSupabase()
@@ -52,6 +94,8 @@ export const getStudyFormTemplates = cache(
       throw new Error(error.message)
     }
 
-    return FormTemplateRowSchema.array().parse(data).map(mapFormTemplate)
+    return (data ?? [])
+      .map((row, index) => toSafeFormTemplate(row, index))
+      .filter((template): template is StudyFormTemplate => template !== null)
   },
 )

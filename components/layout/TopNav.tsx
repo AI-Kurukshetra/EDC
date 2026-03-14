@@ -75,7 +75,7 @@ export function TopNav({ profile, className }: TopNavProps) {
               Clinical Operations
             </p>
             <h1 className="font-[family-name:var(--font-display)] text-xl font-semibold text-[color:var(--color-gray-900)]">
-              Phase 1 Control Panel
+              Clinical Data Hub
             </h1>
           </div>
         </div>

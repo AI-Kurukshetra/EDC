@@ -40,6 +40,27 @@ export async function createStudy(raw: unknown): Promise<ActionResult<{ id: stri
   }
 
   const supabase = await getServerSupabase()
+  const viewerResult = await supabase
+    .from('profiles')
+    .select('role, is_active')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (viewerResult.error) {
+    return { success: false, error: 'Unable to validate your account permissions.' }
+  }
+
+  if (!viewerResult.data || viewerResult.data.is_active !== true) {
+    return { success: false, error: 'Your account is inactive. Contact an administrator.' }
+  }
+
+  if (!['sponsor', 'data_manager', 'super_admin'].includes(viewerResult.data.role)) {
+    return {
+      success: false,
+      error:
+        'You do not have permission to create studies. Ask a sponsor, data manager, or super-admin to create this study.',
+    }
+  }
 
   const studyResult = await supabase
     .from('studies')

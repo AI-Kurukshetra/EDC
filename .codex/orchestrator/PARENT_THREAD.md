@@ -190,7 +190,23 @@ Keep this file compact:
 - Phase 2 onboarding recovery is now live in `/admin`:
   - each platform user card can generate a one-time sign-in link or password-reset link for the selected user
   - generated admin access links are copyable directly from the UI and record audit events
-- Gate/build verification is intentionally deferred until the end of the phase per user instruction.
+- Phase 2 study oversight is now richer in `/admin`:
+  - the study governance section now supports local study search and status filtering
+  - each study card now shows live open-query totals, high-priority query load, export job totals, and latest export status/timestamp
+- Phase 2 document governance is now live in `/admin`:
+  - super admins can register study document metadata records with study, category, version, and storage path
+  - the admin workspace now shows a searchable recent document register with study context, uploader identity, and registration timestamps
+  - document registration writes an audit event and notifies the study sponsor owner
+- Phase 2 signature oversight is now live in `/admin`:
+  - the admin workspace now shows a searchable recent signature register with entity-type filters, signer identity, signed timestamps, and certificate hashes
+  - signature rows are enriched server-side with contextual labels for known entities such as studies, study documents, exports, profiles, site assignments, and subjects when that context can be resolved
+- Gate/build verification was rerun on March 14, 2026 after the auth recovery slice:
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm format:check`
+  - `pnpm test`
+  - `pnpm build`
+  - fixed the production build failure caused by `useSearchParams()` in `/login` by moving auth-link error handling to the server page component
 
 ## Current Blockers
 
@@ -203,7 +219,7 @@ Keep this file compact:
 ## Exact Next Steps
 
 1. Continue Phase 2 from the admin workspace:
-   - continue from the new governance, site-access, and auth-recovery controls and choose the next bounded admin feature, such as broader study oversight or document/governance operations
+   - continue from the new governance, site-access, auth-recovery, study-oversight, document-register, and signature-oversight controls and choose the next bounded admin feature, such as broader document operations or a user-facing signature capture workflow
 2. Regenerate `types/database.types.ts` from the live schema when convenient.
 3. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
 4. Decide whether to keep or replace the `postbuild` server-chunk workaround after investigating the underlying Next.js runtime path mismatch.

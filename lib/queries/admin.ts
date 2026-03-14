@@ -8,8 +8,10 @@ import { PostgresUuidSchema } from '@/lib/validations/identifiers'
 import {
   NOTIFICATION_TYPES,
   QUERY_PRIORITIES,
+  STUDY_DOCUMENT_CATEGORIES,
   STUDY_STATUSES,
   USER_ROLES,
+  type AdminSignatureSummary,
   type AdminUserSiteAssignment,
   type AdminWorkspace,
 } from '@/types'
@@ -34,6 +36,13 @@ const StudyRowSchema = z.object({
 const SubjectRowSchema = z.object({
   id: PostgresUuidSchema,
   study_id: PostgresUuidSchema,
+})
+
+const QueryRowSchema = z.object({
+  id: PostgresUuidSchema,
+  subject_id: PostgresUuidSchema,
+  status: z.enum(['open', 'answered', 'closed', 'cancelled']),
+  priority: z.enum(QUERY_PRIORITIES),
 })
 
 const SiteRowSchema = z.object({
@@ -76,6 +85,115 @@ const RecentNotificationRowSchema = z.object({
   created_at: z.string(),
 })
 
+const ExportRowSchema = z.object({
+  id: PostgresUuidSchema,
+  study_id: PostgresUuidSchema,
+  status: z.enum(['queued', 'processing', 'completed', 'failed']),
+  created_at: z.string(),
+})
+
+const StudyDocumentRowSchema = z.object({
+  id: PostgresUuidSchema,
+  study_id: PostgresUuidSchema,
+  name: z.string(),
+  file_path: z.string(),
+  version: z.number().int().positive(),
+  uploaded_by: PostgresUuidSchema.nullable(),
+  category: z.enum(STUDY_DOCUMENT_CATEGORIES),
+  created_at: z.string(),
+})
+
+const SignatureRowSchema = z.object({
+  id: PostgresUuidSchema,
+  entity_type: z.string(),
+  entity_id: z.string(),
+  signed_by: PostgresUuidSchema,
+  signature_meaning: z.string(),
+  signed_at: z.string(),
+  created_at: z.string(),
+  certificate_hash: z.string(),
+})
+
+function resolveAdminSignatureEntityContext(
+  signature: z.infer<typeof SignatureRowSchema>,
+  options: {
+    documentsById: Map<string, z.infer<typeof StudyDocumentRowSchema>>
+    exportsById: Map<string, z.infer<typeof ExportRowSchema>>
+    profileById: Map<string, z.infer<typeof ProfileRowSchema>>
+    siteById: Map<string, z.infer<typeof SiteRowSchema>>
+    siteUsersById: Map<string, z.infer<typeof SiteUserRowSchema>>
+    studyById: Map<string, z.infer<typeof StudyRowSchema>>
+    subjectById: Map<string, z.infer<typeof SubjectRowSchema>>
+  },
+): Pick<AdminSignatureSummary, 'entityLabel' | 'entityContext'> {
+  if (signature.entity_type === 'study') {
+    const study = options.studyById.get(signature.entity_id)
+
+    return {
+      entityLabel: study?.title ?? null,
+      entityContext: study?.protocol_number ?? null,
+    }
+  }
+
+  if (signature.entity_type === 'study_document') {
+    const document = options.documentsById.get(signature.entity_id)
+    const study = document ? options.studyById.get(document.study_id) : null
+
+    return {
+      entityLabel: document?.name ?? null,
+      entityContext:
+        document && study
+          ? `${study.protocol_number} • v${String(document.version)} • ${document.category.replaceAll('_', ' ')}`
+          : null,
+    }
+  }
+
+  if (signature.entity_type === 'data_export') {
+    const exportRow = options.exportsById.get(signature.entity_id)
+    const study = exportRow ? options.studyById.get(exportRow.study_id) : null
+
+    return {
+      entityLabel: study ? `${study.protocol_number} export` : null,
+      entityContext: exportRow ? `status ${exportRow.status}` : null,
+    }
+  }
+
+  if (signature.entity_type === 'profile') {
+    const profile = options.profileById.get(signature.entity_id)
+
+    return {
+      entityLabel: profile?.full_name ?? null,
+      entityContext: profile?.email ?? null,
+    }
+  }
+
+  if (signature.entity_type === 'site_user') {
+    const siteUser = options.siteUsersById.get(signature.entity_id)
+    const site = siteUser ? options.siteById.get(siteUser.site_id) : null
+    const assignee = siteUser ? options.profileById.get(siteUser.user_id) : null
+
+    return {
+      entityLabel: site ? `${site.site_code} assignment` : null,
+      entityContext: assignee?.email ?? null,
+    }
+  }
+
+  if (signature.entity_type === 'subject') {
+    const subject = options.subjectById.get(signature.entity_id)
+    const study = subject ? options.studyById.get(subject.study_id) : null
+
+    return {
+      entityLabel: subject?.id ?? null,
+      entityContext: study?.protocol_number ?? null,
+    }
+  }
+
+  return {
+    entityLabel: null,
+    entityContext: null,
+  }
+}
+
 /** Loads the first platform-admin workspace slice for super admins. */
 export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
   const viewer = await getCurrentSessionProfile()
@@ -93,11 +211,15 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
     profilesResult,
     studiesResult,
     subjectsResult,
+    queriesResult,
     siteUsersResult,
     sitesResult,
     notificationsResult,
     auditLogsResult,
     recentNotificationsResult,
+    exportsResult,
+    documentsResult,
+    signaturesResult,
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -105,6 +227,7 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
       .order('created_at', { ascending: false }),
     supabase.from('studies').select('id, title, protocol_number, sponsor_id, status'),
     supabase.from('subjects').select('id, study_id'),
+    supabase.from('queries').select('id, subject_id, status, priority'),
     supabase.from('site_users').select('id, user_id, site_id, role'),
     supabase.from('sites').select('id, study_id, name, site_code'),
     supabase.from('notifications').select('user_id, read_at'),
@@ -118,6 +241,19 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
       .select('id, user_id, type, title, message, entity_id, priority, read_at, created_at')
       .order('created_at', { ascending: false })
       .limit(12),
+    supabase.from('data_exports').select('id, study_id, status, created_at'),
+    supabase
+      .from('study_documents')
+      .select('id, study_id, name, file_path, version, uploaded_by, category, created_at')
+      .order('created_at', { ascending: false })
+      .limit(20),
+    supabase
+      .from('signatures')
+      .select(
+        'id, entity_type, entity_id, signed_by, signature_meaning, signed_at, created_at, certificate_hash',
+      )
+      .order('signed_at', { ascending: false })
+      .limit(20),
   ])
 
   if (profilesResult.error) {
@@ -130,6 +266,10 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
 
   if (subjectsResult.error) {
     throw new Error(subjectsResult.error.message)
+  }
+
+  if (queriesResult.error) {
+    throw new Error(queriesResult.error.message)
   }
 
   if (siteUsersResult.error) {
@@ -152,9 +292,22 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
     throw new Error(recentNotificationsResult.error.message)
   }
 
+  if (exportsResult.error) {
+    throw new Error(exportsResult.error.message)
+  }
+
+  if (documentsResult.error) {
+    throw new Error(documentsResult.error.message)
+  }
+
+  if (signaturesResult.error) {
+    throw new Error(signaturesResult.error.message)
+  }
+
   const profiles = ProfileRowSchema.array().parse(profilesResult.data)
   const studies = StudyRowSchema.array().parse(studiesResult.data)
   const subjects = SubjectRowSchema.array().parse(subjectsResult.data)
+  const queries = QueryRowSchema.array().parse(queriesResult.data)
   const siteUsers = SiteUserRowSchema.array().parse(siteUsersResult.data)
   const sites = SiteRowSchema.array().parse(sitesResult.data)
   const notifications = NotificationRowSchema.array().parse(notificationsResult.data)
@@ -162,15 +315,25 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
   const recentNotifications = RecentNotificationRowSchema.array().parse(
     recentNotificationsResult.data,
   )
+  const exports = ExportRowSchema.array().parse(exportsResult.data)
+  const documents = StudyDocumentRowSchema.array().parse(documentsResult.data)
+  const signatures = SignatureRowSchema.array().parse(signaturesResult.data)
 
   const siteById = new Map(sites.map((site) => [site.id, site]))
   const studyById = new Map(studies.map((study) => [study.id, study]))
+  const subjectById = new Map(subjects.map((subject) => [subject.id, subject]))
   const profileById = new Map(profiles.map((profile) => [profile.id, profile]))
+  const documentsById = new Map(documents.map((document) => [document.id, document]))
+  const exportsById = new Map(exports.map((exportRow) => [exportRow.id, exportRow]))
+  const siteUsersById = new Map(siteUsers.map((siteUser) => [siteUser.id, siteUser]))
   const siteAssignmentsByUserId = new Map<string, AdminUserSiteAssignment[]>()
   const sponsoredStudyCountByUserId = new Map<string, number>()
   const unreadNotificationsByUserId = new Map<string, number>()
   const siteCountByStudyId = new Map<string, number>()
   const subjectCountByStudyId = new Map<string, number>()
+  const openQueryCountByStudyId = new Map<string, number>()
+  const highPriorityOpenQueryCountByStudyId = new Map<string, number>()
+  const exportsByStudyId = new Map<string, z.infer<typeof ExportRowSchema>[]>()
 
   for (const siteUser of siteUsers) {
     const site = siteById.get(siteUser.site_id)
@@ -207,6 +370,36 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
       subject.study_id,
       (subjectCountByStudyId.get(subject.study_id) ?? 0) + 1,
     )
+  }
+
+  for (const query of queries) {
+    if (query.status !== 'open') {
+      continue
+    }
+
+    const subject = subjectById.get(query.subject_id)
+
+    if (!subject) {
+      continue
+    }
+
+    openQueryCountByStudyId.set(
+      subject.study_id,
+      (openQueryCountByStudyId.get(subject.study_id) ?? 0) + 1,
+    )
+
+    if (query.priority === 'high') {
+      highPriorityOpenQueryCountByStudyId.set(
+        subject.study_id,
+        (highPriorityOpenQueryCountByStudyId.get(subject.study_id) ?? 0) + 1,
+      )
+    }
+  }
+
+  for (const exportRow of exports) {
+    const studyExports = exportsByStudyId.get(exportRow.study_id) ?? []
+    studyExports.push(exportRow)
+    exportsByStudyId.set(exportRow.study_id, studyExports)
   }
 
   for (const notification of notifications) {
@@ -264,6 +457,10 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
     }),
     studies: studies.map((study) => {
       const sponsor = profileById.get(study.sponsor_id)
+      const studyExports = (exportsByStudyId.get(study.id) ?? []).sort((left, right) =>
+        right.created_at.localeCompare(left.created_at),
+      )
+      const latestExport = studyExports[0] ?? null
 
       return {
         id: study.id,
@@ -275,6 +472,11 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
         sponsorEmail: sponsor?.email ?? null,
         siteCount: siteCountByStudyId.get(study.id) ?? 0,
         subjectCount: subjectCountByStudyId.get(study.id) ?? 0,
+        openQueryCount: openQueryCountByStudyId.get(study.id) ?? 0,
+        highPriorityOpenQueryCount: highPriorityOpenQueryCountByStudyId.get(study.id) ?? 0,
+        exportJobCount: studyExports.length,
+        lastExportStatus: latestExport?.status ?? null,
+        lastExportRequestedAt: latestExport?.created_at ?? null,
       }
     }),
     sites: sites.flatMap((site) => {
@@ -314,6 +516,59 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
           priority: notification.priority,
           readAt: notification.read_at,
           createdAt: notification.created_at,
+        },
+      ]
+    }),
+    documents: documents.flatMap((document) => {
+      const study = studyById.get(document.study_id)
+
+      if (!study) {
+        return []
+      }
+
+      const uploader = document.uploaded_by ? profileById.get(document.uploaded_by) : null
+
+      return [
+        {
+          id: document.id,
+          studyId: study.id,
+          studyTitle: study.title,
+          protocolNumber: study.protocol_number,
+          name: document.name,
+          filePath: document.file_path,
+          version: document.version,
+          category: document.category,
+          uploadedByName: uploader?.full_name ?? null,
+          uploadedByEmail: uploader?.email ?? null,
+          createdAt: document.created_at,
+        },
+      ]
+    }),
+    signatures: signatures.flatMap((signature) => {
+      const signer = profileById.get(signature.signed_by)
+      const entity = resolveAdminSignatureEntityContext(signature, {
+        documentsById,
+        exportsById,
+        profileById,
+        siteById,
+        siteUsersById,
+        studyById,
+        subjectById,
+      })
+
+      return [
+        {
+          id: signature.id,
+          entityType: signature.entity_type,
+          entityId: signature.entity_id,
+          entityLabel: entity.entityLabel,
+          entityContext: entity.entityContext,
+          signatureMeaning: signature.signature_meaning,
+          signedByName: signer?.full_name ?? null,
+          signedByEmail: signer?.email ?? null,
+          signedAt: signature.signed_at,
+          createdAt: signature.created_at,
+          certificateHash: signature.certificate_hash,
         },
       ]
     }),

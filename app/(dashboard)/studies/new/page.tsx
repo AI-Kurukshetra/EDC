@@ -1,9 +1,24 @@
 import { CreateStudyForm } from './_components/create-study-form'
+import { getServerSupabase } from '@/lib/supabase/server'
 
 type NewStudyPageProps = Record<string, never>
 
 /** Hosts the study creation wizard for new protocol setup. */
-export default function NewStudyPage(_props: NewStudyPageProps) {
+export default async function NewStudyPage(_props: NewStudyPageProps) {
+  const supabase = await getServerSupabase()
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, role, is_active')
+    .eq('is_active', true)
+    .order('full_name', { ascending: true })
+
+  const teamUserOptions = (data ?? []).map((row) => ({
+    id: row.id as string,
+    fullName: row.full_name as string,
+    email: row.email as string,
+    role: row.role as string,
+  }))
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
@@ -19,7 +34,7 @@ export default function NewStudyPage(_props: NewStudyPageProps) {
         </p>
       </div>
 
-      <CreateStudyForm />
+      <CreateStudyForm teamUserOptions={teamUserOptions} />
     </div>
   )
 }
