@@ -49,7 +49,7 @@ Keep this file compact:
 
 ## Active Objective
 
-- Phase 1 shell/account UX is now complete and Phase 2 has started with the first real admin operations surface.
+- Phase 1 shell/account UX is complete, and Phase 2 is expanding `/admin` into a fuller governance and access-management workspace.
 
 ## Current State
 
@@ -175,6 +175,13 @@ Keep this file compact:
   - super admins can now provision a new platform account with full name, email, platform role, and temporary password
   - provisioning can optionally attach the new user to an existing site with a site role
   - the provisioning action uses the service-role admin client, writes the profile role explicitly, creates the optional `site_users` assignment, sends a welcome inbox notification, and records an audit event
+- Phase 2 study governance controls are now live in `/admin`:
+  - super admins can reassign sponsor ownership and update study status from the same governance card
+  - study governance changes now notify the sponsor owner and record audit events for sponsor/status changes
+- Phase 2 site-access lifecycle controls are now live in `/admin`:
+  - each platform user card now shows detailed site assignments with site role badges
+  - super admins can add a new site assignment, update an existing site role, or remove site access without leaving the platform user inventory
+  - site assignment changes notify the affected user and record audit events
 - Gate/build verification is intentionally deferred until the end of the phase per user instruction.
 
 ## Current Blockers
@@ -188,7 +195,7 @@ Keep this file compact:
 ## Exact Next Steps
 
 1. Continue Phase 2 from the admin workspace:
-   - continue from the new admin provisioning flow and choose the next bounded admin feature after provisioning, such as invitation-style onboarding polish or study-governance actions
+   - continue from the new governance and site-access controls and choose the next bounded admin feature, such as invitation/password-reset onboarding polish or broader study oversight
 2. Regenerate `types/database.types.ts` from the live schema when convenient.
 3. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
 4. Decide whether to keep or replace the `postbuild` server-chunk workaround after investigating the underlying Next.js runtime path mismatch.

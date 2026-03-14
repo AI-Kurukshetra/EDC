@@ -2,7 +2,7 @@
 
 ## Active Child Task
 
-- Continue Phase 2 from `/admin` after the governance, notification, and provisioning slices, and choose the next bounded admin feature.
+- Continue Phase 2 from `/admin` after the governance, provisioning, notification, and site-access slices, and choose the next bounded admin feature.
 - Regenerate `types/database.types.ts` when a clean generation path is available.
 - Repair / backfill `supabase_migrations` before relying on CLI migration-history workflows again.
 - Decide whether to keep or replace the `postbuild` server-chunk workaround after root-causing the Next.js runtime-path issue.
@@ -10,7 +10,7 @@
 
 ## Next Child Tasks
 
-- Add the next admin capability after provisioning, such as invitation/onboarding polish or study-governance controls.
+- Add the next admin capability after governance and site-access management, such as invitation/password-reset onboarding polish or broader study oversight.
 - Refresh `PARENT_THREAD.md` at every handoff.
 
 ## Parked

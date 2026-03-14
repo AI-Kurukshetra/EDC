@@ -164,6 +164,7 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
   )
 
   const siteById = new Map(sites.map((site) => [site.id, site]))
+  const studyById = new Map(studies.map((study) => [study.id, study]))
   const profileById = new Map(profiles.map((profile) => [profile.id, profile]))
   const siteAssignmentsByUserId = new Map<string, AdminUserSiteAssignment[]>()
   const sponsoredStudyCountByUserId = new Map<string, number>()
@@ -173,7 +174,7 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
 
   for (const siteUser of siteUsers) {
     const site = siteById.get(siteUser.site_id)
-    const study = site ? studies.find((studyRow) => studyRow.id === site.study_id) : null
+    const study = site ? studyById.get(site.study_id) : null
 
     if (site && study) {
       const assignments = siteAssignmentsByUserId.get(siteUser.user_id) ?? []

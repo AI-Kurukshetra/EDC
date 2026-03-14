@@ -16,10 +16,15 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { sendAdminNotification } from '@/lib/actions/admin-notifications'
 import { provisionAdminUser } from '@/lib/actions/admin-provision-users'
+import {
+  assignAdminUserSite,
+  removeAdminUserSiteAssignment,
+} from '@/lib/actions/admin-site-assignments'
 import { updateAdminStudyGovernance } from '@/lib/actions/admin-studies'
 import { updateAdminUserAccess } from '@/lib/actions/admin-users'
 import { formatDateTime } from '@/lib/utils/format'
 import {
+  type AdminSiteOption,
   NOTIFICATION_TYPES,
   QUERY_PRIORITIES,
   STUDY_STATUSES,
@@ -71,6 +76,11 @@ type AdminWorkspaceProps = {
 type AdminUserAccessControlsProps = {
   user: AdminUserSummary
   isViewer: boolean
+}
+
+type AdminUserSiteAssignmentControlsProps = {
+  user: AdminUserSummary
+  siteOptions: AdminSiteOption[]
 }
 
 type AdminStudyGovernanceControlsProps = {
@@ -188,6 +198,188 @@ function AdminUserAccessControls({ user, isViewer }: AdminUserAccessControlsProp
           Your own super-admin access is protected from self-demotion or self-deactivation.
         </p>
       ) : null}
+    </div>
+  )
+}
+
+function AdminUserSiteAssignmentControls({
+  user,
+  siteOptions,
+}: AdminUserSiteAssignmentControlsProps) {
+  const router = useRouter()
+  const [siteId, setSiteId] = useState(user.siteAssignments[0]?.siteId ?? siteOptions[0]?.id ?? '')
+  const [role, setRole] = useState<UserRole>(user.siteAssignments[0]?.role ?? 'coordinator')
+  const [busyAssignmentId, setBusyAssignmentId] = useState<string | null>(null)
+  const [isSaving, startSavingTransition] = useTransition()
+  const selectedAssignment = user.siteAssignments.find((assignment) => assignment.siteId === siteId)
+  const selectedSite = siteOptions.find((site) => site.id === siteId) ?? null
+  let assignButtonLabel = 'Assign site'
+
+  if (busyAssignmentId === '__assign__') {
+    assignButtonLabel = 'Saving...'
+  } else if (selectedAssignment) {
+    assignButtonLabel = 'Update site role'
+  }
+
+  function handleSiteChange(nextSiteId: string) {
+    setSiteId(nextSiteId)
+
+    const existingAssignment = user.siteAssignments.find((assignment) => assignment.siteId === nextSiteId)
+
+    setRole(existingAssignment?.role ?? 'coordinator')
+  }
+
+  function handleAssignOrUpdate() {
+    if (!selectedSite) {
+      return
+    }
+
+    setBusyAssignmentId('__assign__')
+
+    startSavingTransition(() => {
+      void (async () => {
+        const result = await assignAdminUserSite({
+          userId: user.id,
+          siteId: selectedSite.id,
+          role,
+        })
+
+        if (!result.success) {
+          toast.error(
+            typeof result.error === 'string' ? result.error : 'Unable to update site access.',
+          )
+          setBusyAssignmentId(null)
+          return
+        }
+
+        toast.success(
+          selectedAssignment
+            ? `Updated ${user.fullName}'s role for ${selectedSite.siteCode}.`
+            : `Assigned ${user.fullName} to ${selectedSite.siteCode}.`,
+        )
+        setBusyAssignmentId(null)
+        router.refresh()
+      })()
+    })
+  }
+
+  function handleRemove(assignmentId: string, siteCode: string) {
+    setBusyAssignmentId(assignmentId)
+
+    startSavingTransition(() => {
+      void (async () => {
+        const result = await removeAdminUserSiteAssignment({
+          assignmentId,
+        })
+
+        if (!result.success) {
+          toast.error(
+            typeof result.error === 'string' ? result.error : 'Unable to remove site access.',
+          )
+          setBusyAssignmentId(null)
+          return
+        }
+
+        toast.success(`Removed ${user.fullName} from ${siteCode}.`)
+        setBusyAssignmentId(null)
+        router.refresh()
+      })()
+    })
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-[color:var(--color-navy-100)] bg-[color:var(--color-navy-50)] px-4 py-4">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-[color:var(--color-gray-900)]">Site access</p>
+          <p className="text-xs text-[color:var(--color-gray-600)]">
+            Add new assignments or update the role for an existing site.
+          </p>
+        </div>
+
+        {user.siteAssignments.length > 0 ? (
+          <div className="space-y-2">
+            {user.siteAssignments.map((assignment) => (
+              <div
+                key={assignment.id}
+                className="flex flex-col gap-3 rounded-xl border border-[color:var(--color-gray-200)] bg-white px-3 py-3 md:flex-row md:items-center md:justify-between"
+              >
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-[color:var(--color-gray-900)]">
+                      {assignment.siteCode}
+                    </p>
+                    <Badge variant={ROLE_VARIANTS[assignment.role]}>
+                      {formatRoleLabel(assignment.role)}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-[color:var(--color-gray-600)]">
+                    {assignment.siteName} in {assignment.studyTitle}
+                  </p>
+                </div>
+
+                <Button
+                  disabled={isSaving}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    handleRemove(assignment.id, assignment.siteCode)
+                  }}
+                >
+                  {busyAssignmentId === assignment.id ? 'Removing...' : 'Remove access'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-xl border border-dashed border-[color:var(--color-gray-300)] bg-white px-3 py-3 text-sm text-[color:var(--color-gray-600)]">
+            No site assignments yet.
+          </p>
+        )}
+
+        <div className="grid gap-3 md:grid-cols-[1fr_0.7fr_auto]">
+          <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+            <span className="font-medium">Site</span>
+            <select
+              className={SELECT_CLASS_NAME}
+              disabled={isSaving || siteOptions.length === 0}
+              value={siteId}
+              onChange={(event) => {
+                handleSiteChange(event.target.value)
+              }}
+            >
+              {siteOptions.length === 0 ? <option value="">No sites available</option> : null}
+              {siteOptions.map((site) => (
+                <option key={site.id} value={site.id}>
+                  {site.siteCode} - {site.name} - {site.studyTitle}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+            <span className="font-medium">Site role</span>
+            <select
+              className={SELECT_CLASS_NAME}
+              disabled={isSaving || siteOptions.length === 0}
+              value={role}
+              onChange={(event) => {
+                setRole(event.target.value as UserRole)
+              }}
+            >
+              {USER_ROLES.map((roleOption) => (
+                <option key={roleOption} value={roleOption}>
+                  {formatRoleLabel(roleOption)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <Button disabled={isSaving || !selectedSite} onClick={handleAssignOrUpdate}>
+            {assignButtonLabel}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1112,6 +1304,7 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceProps) {
                   </div>
                 </div>
 
+                <AdminUserSiteAssignmentControls siteOptions={workspace.sites} user={user} />
                 <AdminUserAccessControls isViewer={workspace.viewer.id === user.id} user={user} />
               </div>
             ))
