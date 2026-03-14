@@ -4,7 +4,12 @@ import { headers } from 'next/headers'
 
 import { getPublicEnv } from '@/lib/env'
 import { getServerSupabase } from '@/lib/supabase/server'
-import { LoginSchema, MagicLinkSchema, RegisterSchema } from '@/lib/validations/auth.schema'
+import {
+  ForgotPasswordSchema,
+  LoginSchema,
+  MagicLinkSchema,
+  RegisterSchema,
+} from '@/lib/validations/auth.schema'
 
 import type { ActionResult } from '@/types/actions'
 
@@ -12,6 +17,17 @@ function flattenErrors(result: {
   error: { flatten: () => { fieldErrors: Record<string, string[]> } }
 }) {
   return result.error.flatten().fieldErrors
+}
+
+async function getAuthRedirectBasePath() {
+  const env = getPublicEnv()
+  const headerStore = await headers()
+  const origin = headerStore.get('origin') ?? env.NEXT_PUBLIC_APP_URL
+
+  return {
+    callbackBaseUrl: `${origin}/auth/callback`,
+    origin,
+  }
 }
 
 export async function loginWithPassword(
@@ -41,14 +57,12 @@ export async function sendMagicLink(raw: unknown): Promise<ActionResult<string>>
   }
 
   const supabase = await getServerSupabase()
-  const env = getPublicEnv()
-  const headerStore = await headers()
-  const origin = headerStore.get('origin') ?? env.NEXT_PUBLIC_APP_URL
+  const { callbackBaseUrl } = await getAuthRedirectBasePath()
 
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
     options: {
-      emailRedirectTo: `${origin}/`,
+      emailRedirectTo: `${callbackBaseUrl}?next=%2F`,
     },
   })
 
@@ -70,15 +84,13 @@ export async function registerWithPassword(raw: unknown): Promise<ActionResult<s
   }
 
   const supabase = await getServerSupabase()
-  const env = getPublicEnv()
-  const headerStore = await headers()
-  const origin = headerStore.get('origin') ?? env.NEXT_PUBLIC_APP_URL
+  const { callbackBaseUrl } = await getAuthRedirectBasePath()
 
   const { error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${origin}/`,
+      emailRedirectTo: `${callbackBaseUrl}?next=%2F`,
       data: {
         full_name: parsed.data.fullName,
         requested_role: parsed.data.role,
@@ -93,6 +105,30 @@ export async function registerWithPassword(raw: unknown): Promise<ActionResult<s
   return {
     success: true,
     data: 'Account created. Check your inbox to confirm your email and complete setup.',
+  }
+}
+
+export async function requestPasswordReset(raw: unknown): Promise<ActionResult<string>> {
+  const parsed = ForgotPasswordSchema.safeParse(raw)
+
+  if (!parsed.success) {
+    return { success: false, error: flattenErrors(parsed) }
+  }
+
+  const supabase = await getServerSupabase()
+  const { callbackBaseUrl } = await getAuthRedirectBasePath()
+
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${callbackBaseUrl}?next=%2Freset-password`,
+  })
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return {
+    success: true,
+    data: 'Password reset instructions sent. Check your inbox to continue.',
   }
 }
 

@@ -3,7 +3,7 @@
 import type { SyntheticEvent } from 'react'
 import { startTransition, useState } from 'react'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -21,11 +21,13 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { loginWithPassword, sendMagicLink } from '@/lib/actions/auth'
+import { loginWithPassword, requestPasswordReset, sendMagicLink } from '@/lib/actions/auth'
 import { cn } from '@/lib/utils/cn'
 import {
+  ForgotPasswordSchema,
   LoginSchema,
   MagicLinkSchema,
+  type ForgotPasswordInput,
   type LoginInput,
   type MagicLinkInput,
 } from '@/lib/validations/auth.schema'
@@ -37,8 +39,11 @@ type LoginFormProps = {
 /** Handles password and magic-link sign-in flows for approved study users. */
 export function LoginForm({ className }: LoginFormProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSendingLink, setIsSendingLink] = useState(false)
+  const [isSendingRecovery, setIsSendingRecovery] = useState(false)
+  const authError = searchParams.get('error')
 
   const loginForm = useForm<LoginInput>({
     resolver: zodResolver(LoginSchema),
@@ -50,6 +55,13 @@ export function LoginForm({ className }: LoginFormProps) {
 
   const magicLinkForm = useForm<MagicLinkInput>({
     resolver: zodResolver(MagicLinkSchema),
+    defaultValues: {
+      email: '',
+    },
+  })
+
+  const forgotPasswordForm = useForm<ForgotPasswordInput>({
+    resolver: zodResolver(ForgotPasswordSchema),
     defaultValues: {
       email: '',
     },
@@ -108,6 +120,32 @@ export function LoginForm({ className }: LoginFormProps) {
     })
   }
 
+  function handleForgotPassword(values: ForgotPasswordInput) {
+    setIsSendingRecovery(true)
+
+    startTransition(async () => {
+      const result = await requestPasswordReset(values)
+      setIsSendingRecovery(false)
+
+      if (!result.success) {
+        if (typeof result.error === 'object') {
+          Object.entries(result.error).forEach(([field, errors]) => {
+            forgotPasswordForm.setError(field as keyof ForgotPasswordInput, {
+              message: errors[0] ?? 'Invalid value',
+            })
+          })
+          return
+        }
+
+        toast.error(result.error)
+        return
+      }
+
+      toast.success(result.data)
+      forgotPasswordForm.reset()
+    })
+  }
+
   function handleLoginSubmit(event: SyntheticEvent<HTMLFormElement>) {
     void loginForm.handleSubmit(handleLogin)(event)
   }
@@ -116,8 +154,21 @@ export function LoginForm({ className }: LoginFormProps) {
     void magicLinkForm.handleSubmit(handleMagicLink)(event)
   }
 
+  function handleForgotPasswordSubmit(event: SyntheticEvent<HTMLFormElement>) {
+    void forgotPasswordForm.handleSubmit(handleForgotPassword)(event)
+  }
+
   return (
     <div className={cn('space-y-6', className)}>
+      {authError ? (
+        <Card className="border-[color:var(--color-gray-300)] bg-[color:var(--color-gray-50)]">
+          <CardHeader>
+            <CardTitle className="text-lg">Authentication link issue</CardTitle>
+            <CardDescription>{authError}</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <p className="text-xs font-medium tracking-[0.08em] text-[color:var(--color-navy-700)] uppercase">
@@ -210,6 +261,51 @@ export function LoginForm({ className }: LoginFormProps) {
 
               <Button className="w-full" disabled={isSendingLink} type="submit" variant="outline">
                 {isSendingLink ? 'Sending link...' : 'Send magic link'}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">Forgot your password?</CardTitle>
+          <CardDescription>
+            Request a recovery link that lets you set a new password securely.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...forgotPasswordForm}>
+            <form className="space-y-5" noValidate onSubmit={handleForgotPasswordSubmit}>
+              <FormField
+                control={forgotPasswordForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        autoComplete="email"
+                        placeholder="operator@clinicalhub.com"
+                        type="email"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      The recovery link will take you to a secure password reset screen.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                className="w-full"
+                disabled={isSendingRecovery}
+                type="submit"
+                variant="outline"
+              >
+                {isSendingRecovery ? 'Sending recovery link...' : 'Send recovery link'}
               </Button>
             </form>
           </Form>

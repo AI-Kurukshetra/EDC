@@ -49,7 +49,7 @@ Keep this file compact:
 
 ## Active Objective
 
-- Phase 1 shell/account UX is complete, and Phase 2 is expanding `/admin` into a fuller governance and access-management workspace.
+- Phase 1 shell/account UX is complete, and Phase 2 is expanding `/admin` plus auth recovery into a fuller governance and access-management workspace.
 
 ## Current State
 
@@ -182,6 +182,14 @@ Keep this file compact:
   - each platform user card now shows detailed site assignments with site role badges
   - super admins can add a new site assignment, update an existing site role, or remove site access without leaving the platform user inventory
   - site assignment changes notify the affected user and record audit events
+- Auth recovery and email-auth redirects are now wired:
+  - added `/auth/callback` to exchange or verify Supabase email-auth links before redirecting back into the app
+  - magic-link sign-in and signup confirmation now target the callback route instead of redirecting straight to `/`
+  - `/login` now supports self-service password-reset requests
+  - `/reset-password` now exists and allows a recovered user to set a new password
+- Phase 2 onboarding recovery is now live in `/admin`:
+  - each platform user card can generate a one-time sign-in link or password-reset link for the selected user
+  - generated admin access links are copyable directly from the UI and record audit events
 - Gate/build verification is intentionally deferred until the end of the phase per user instruction.
 
 ## Current Blockers
@@ -195,7 +203,7 @@ Keep this file compact:
 ## Exact Next Steps
 
 1. Continue Phase 2 from the admin workspace:
-   - continue from the new governance and site-access controls and choose the next bounded admin feature, such as invitation/password-reset onboarding polish or broader study oversight
+   - continue from the new governance, site-access, and auth-recovery controls and choose the next bounded admin feature, such as broader study oversight or document/governance operations
 2. Regenerate `types/database.types.ts` from the live schema when convenient.
 3. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
 4. Decide whether to keep or replace the `postbuild` server-chunk workaround after investigating the underlying Next.js runtime path mismatch.

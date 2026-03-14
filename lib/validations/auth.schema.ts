@@ -19,3 +19,21 @@ export const MagicLinkSchema = z.object({
 })
 
 export type MagicLinkInput = z.infer<typeof MagicLinkSchema>
+
+export const ForgotPasswordSchema = z.object({
+  email: z.email('Enter a valid email address'),
+})
+
+export type ForgotPasswordInput = z.infer<typeof ForgotPasswordSchema>
+
+export const ResetPasswordSchema = z
+  .object({
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string().min(8, 'Confirm your new password'),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    message: 'Passwords must match',
+    path: ['confirmPassword'],
+  })
+
+export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>

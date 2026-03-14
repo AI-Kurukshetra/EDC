@@ -21,6 +21,7 @@ import {
   removeAdminUserSiteAssignment,
 } from '@/lib/actions/admin-site-assignments'
 import { updateAdminStudyGovernance } from '@/lib/actions/admin-studies'
+import { generateAdminUserAccessLink } from '@/lib/actions/admin-user-links'
 import { updateAdminUserAccess } from '@/lib/actions/admin-users'
 import { formatDateTime } from '@/lib/utils/format'
 import {
@@ -81,6 +82,10 @@ type AdminUserAccessControlsProps = {
 type AdminUserSiteAssignmentControlsProps = {
   user: AdminUserSummary
   siteOptions: AdminSiteOption[]
+}
+
+type AdminUserAccessLinkControlsProps = {
+  user: AdminUserSummary
 }
 
 type AdminStudyGovernanceControlsProps = {
@@ -379,6 +384,130 @@ function AdminUserSiteAssignmentControls({
             {assignButtonLabel}
           </Button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function AdminUserAccessLinkControls({ user }: AdminUserAccessLinkControlsProps) {
+  const [generatedLink, setGeneratedLink] = useState('')
+  const [generatedLinkType, setGeneratedLinkType] = useState<'magiclink' | 'recovery' | null>(null)
+  const [pendingLinkType, setPendingLinkType] = useState<'magiclink' | 'recovery' | null>(null)
+  const [isGenerating, startGeneratingTransition] = useTransition()
+  const [isCopying, setIsCopying] = useState(false)
+  let helperLabel = 'Generate a one-time sign-in or password-reset link for this user.'
+
+  if (generatedLinkType === 'magiclink') {
+    helperLabel = 'Latest generated link: one-time sign-in access.'
+  } else if (generatedLinkType === 'recovery') {
+    helperLabel = 'Latest generated link: password recovery.'
+  }
+
+  function handleGenerate(linkType: 'magiclink' | 'recovery') {
+    setPendingLinkType(linkType)
+
+    startGeneratingTransition(() => {
+      void (async () => {
+        const result = await generateAdminUserAccessLink({
+          userId: user.id,
+          linkType,
+        })
+
+        if (!result.success) {
+          toast.error(
+            typeof result.error === 'string' ? result.error : 'Unable to generate access link.',
+          )
+          setPendingLinkType(null)
+          return
+        }
+
+        setGeneratedLink(result.data.link)
+        setGeneratedLinkType(result.data.linkType)
+        setPendingLinkType(null)
+        toast.success(
+          linkType === 'magiclink'
+            ? `Generated a sign-in link for ${user.fullName}.`
+            : `Generated a password reset link for ${user.fullName}.`,
+        )
+      })()
+    })
+  }
+
+  function handleCopy() {
+    if (!generatedLink) {
+      return
+    }
+
+    setIsCopying(true)
+
+    void navigator.clipboard
+      .writeText(generatedLink)
+      .then(() => {
+        toast.success('Access link copied.')
+      })
+      .catch(() => {
+        toast.error('Unable to copy the link automatically.')
+      })
+      .finally(() => {
+        setIsCopying(false)
+      })
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-[color:var(--color-navy-100)] bg-[color:var(--color-navy-50)] px-4 py-4">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-[color:var(--color-gray-900)]">Access links</p>
+          <p className="text-xs text-[color:var(--color-gray-600)]">{helperLabel}</p>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button
+            className="sm:flex-1"
+            disabled={isGenerating || !user.isActive}
+            variant="outline"
+            onClick={() => {
+              handleGenerate('magiclink')
+            }}
+          >
+            {isGenerating && pendingLinkType === 'magiclink'
+              ? 'Generating sign-in link...'
+              : 'Generate sign-in link'}
+          </Button>
+          <Button
+            className="sm:flex-1"
+            disabled={isGenerating || !user.isActive}
+            variant="outline"
+            onClick={() => {
+              handleGenerate('recovery')
+            }}
+          >
+            {isGenerating && pendingLinkType === 'recovery'
+              ? 'Generating reset link...'
+              : 'Generate reset link'}
+          </Button>
+        </div>
+
+        {!user.isActive ? (
+          <p className="text-xs text-[color:var(--color-gray-600)]">
+            Activate this account before generating access links.
+          </p>
+        ) : null}
+
+        {generatedLink ? (
+          <div className="space-y-3 rounded-xl border border-[color:var(--color-gray-200)] bg-white px-3 py-3">
+            <Textarea
+              className="min-h-28 font-[family-name:var(--font-mono)] text-xs"
+              readOnly
+              value={generatedLink}
+            />
+            <div className="flex justify-end">
+              <Button disabled={isCopying} size="sm" variant="outline" onClick={handleCopy}>
+                {isCopying ? 'Copying...' : 'Copy link'}
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -1305,6 +1434,7 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceProps) {
                 </div>
 
                 <AdminUserSiteAssignmentControls siteOptions={workspace.sites} user={user} />
+                <AdminUserAccessLinkControls user={user} />
                 <AdminUserAccessControls isViewer={workspace.viewer.id === user.id} user={user} />
               </div>
             ))

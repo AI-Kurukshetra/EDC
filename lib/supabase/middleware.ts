@@ -5,7 +5,7 @@ import { createServerClient } from '@supabase/ssr'
 import { getOptionalPublicEnv } from '@/lib/env'
 
 const AUTH_ROUTES = ['/login', '/register']
-const PUBLIC_ROUTES = ['/login', '/register']
+const PUBLIC_ROUTES = ['/login', '/register', '/reset-password', '/auth/callback']
 const ADMIN_ROUTE_PREFIX = '/admin'
 
 export async function updateSession(request: NextRequest) {
