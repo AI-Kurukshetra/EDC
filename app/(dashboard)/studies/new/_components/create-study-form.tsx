@@ -78,6 +78,7 @@ export function CreateStudyForm({ teamUserOptions, className }: CreateStudyFormP
     control: form.control,
     name: 'teamAssignments',
   })
+  const siteOptions = form.watch('sites').map((site) => site.siteCode.trim()).filter(Boolean)
 
   async function goToStep(step: (typeof DEFAULT_STEPS)[number]) {
     const fieldsPerStep: Record<(typeof DEFAULT_STEPS)[number], (keyof CreateStudyFormValues)[]> = {
@@ -461,8 +462,21 @@ export function CreateStudyForm({ teamUserOptions, className }: CreateStudyFormP
                           <FormItem>
                             <FormLabel>Assigned site code</FormLabel>
                             <FormControl>
-                              <Input placeholder="SITE-001" {...field} />
+                              <select
+                                className="flex h-11 w-full rounded-xl border border-[color:var(--color-gray-200)] bg-white px-3 py-2 text-sm text-[color:var(--color-gray-900)] shadow-sm outline-none focus:border-[color:var(--color-navy-700)] focus:ring-2 focus:ring-[color:var(--color-navy-100)]"
+                                {...field}
+                              >
+                                <option value="">Select site</option>
+                                {siteOptions.map((siteCode) => (
+                                  <option key={siteCode} value={siteCode}>
+                                    {siteCode}
+                                  </option>
+                                ))}
+                              </select>
                             </FormControl>
+                            <FormDescription>
+                              Select from sites you defined in step 2.
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}

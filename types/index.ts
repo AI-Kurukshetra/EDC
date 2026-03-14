@@ -298,6 +298,23 @@ export type StudyOperationsSubject = StudySubjectSummary & {
   openQueryCount: number
   lastVisitDate: string | null
   lastSubmittedAt: string | null
+  canManage: boolean
+}
+
+export type StudySubjectSiteOption = {
+  id: string
+  name: string
+  siteCode: string
+}
+
+export type StudyOperationsSubjectsWorkspace = {
+  studyId: string
+  canManageSubjects: boolean
+  viewerName: string | null
+  viewerEmail: string | null
+  viewerRole: UserRole | null
+  siteOptions: StudySubjectSiteOption[]
+  subjects: StudyOperationsSubject[]
 }
 
 export type StudyOperationsQuery = {

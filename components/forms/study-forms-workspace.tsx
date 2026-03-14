@@ -176,15 +176,14 @@ export function StudyFormsWorkspace({ studyId, templates }: StudyFormsWorkspaceP
     name: 'schema.fields',
   })
 
-  const watchedValues = form.watch()
-  const watchedSchema = watchedValues.schema
-  const watchedSchemaFields = watchedSchema.fields
+  const watchedSchema = form.watch('schema') as SaveStudyFormTemplateInput['schema'] | undefined
+  const watchedSchemaFields = watchedSchema?.fields ?? []
 
   const watchedFields = watchedSchemaFields.map((field, index) =>
     normalizeFieldValue(field, fields.fields[index]?.id ?? `field_${String(index + 1)}`),
   )
   const previewValues = getPreviewSeedValues({
-    description: watchedSchema.description,
+    description: watchedSchema?.description,
     fields: watchedFields,
   })
   const hasValidationIssues = Object.keys(form.formState.errors).length > 0

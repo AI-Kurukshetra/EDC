@@ -20,8 +20,8 @@ import {
   type StudyOperationsExportWorkspace,
   type StudyOperationsQuery,
   type StudyOperationsQueriesWorkspace,
+  type StudyOperationsSubjectsWorkspace,
   type StudyOperationsSite,
-  type StudyOperationsSubject,
   type StudyOperationsUser,
 } from '@/types'
 
@@ -425,12 +425,22 @@ function buildLookupMaps(data: StudyOperationsBase) {
 }
 
 export const getStudySubjectsWorkspace = cache(
-  async (studyId: string): Promise<StudyOperationsSubject[]> => {
-    const data = await getStudyOperationsBase(studyId)
+  async (studyId: string): Promise<StudyOperationsSubjectsWorkspace> => {
+    const [data, viewer] = await Promise.all([
+      getStudyOperationsBase(studyId),
+      getCurrentSessionProfile(),
+    ])
     const { siteById } = buildLookupMaps(data)
 
     const entriesBySubjectId = new Map<string, z.infer<typeof DataEntryRowSchema>[]>()
     const openQueriesBySubjectId = new Map<string, number>()
+    const manageableSiteIds = new Set<string>()
+
+    for (const siteUser of data.siteUsers) {
+      if (siteUser.user_id === viewer?.id) {
+        manageableSiteIds.add(siteUser.site_id)
+      }
+    }
 
     for (const entry of data.entries) {
       const subjectEntries = entriesBySubjectId.get(entry.subject_id) ?? []
@@ -449,7 +459,7 @@ export const getStudySubjectsWorkspace = cache(
       )
     }
 
-    return data.subjects
+    const subjects = data.subjects
       .map((subject) => {
         const site = siteById.get(subject.site_id)
         const subjectEntries = entriesBySubjectId.get(subject.id) ?? []
@@ -474,9 +484,43 @@ export const getStudySubjectsWorkspace = cache(
           openQueryCount: openQueriesBySubjectId.get(subject.id) ?? 0,
           lastVisitDate: getLatestIsoTimestamp(subjectEntries.map((entry) => entry.visit_date)),
           lastSubmittedAt: getLatestIsoTimestamp(subjectEntries.map((entry) => entry.submitted_at)),
+          canManage:
+            viewer?.isActive === true &&
+            (viewer.id === data.study.sponsor_id ||
+              viewer.role === 'super_admin' ||
+              viewer.role === 'data_manager' ||
+              manageableSiteIds.has(subject.site_id)),
         }
       })
       .sort((left, right) => left.subjectId.localeCompare(right.subjectId))
+
+    return {
+      studyId: data.study.id,
+      canManageSubjects:
+        viewer?.isActive === true &&
+        (viewer.id === data.study.sponsor_id ||
+          viewer.role === 'super_admin' ||
+          viewer.role === 'data_manager' ||
+          manageableSiteIds.size > 0),
+      viewerName: viewer?.fullName ?? null,
+      viewerEmail: viewer?.email ?? null,
+      viewerRole: viewer?.role ?? null,
+      siteOptions: data.sites
+        .filter(
+          (site) =>
+            viewer?.id === data.study.sponsor_id ||
+            viewer?.role === 'super_admin' ||
+            viewer?.role === 'data_manager' ||
+            manageableSiteIds.has(site.id),
+        )
+        .map((site) => ({
+          id: site.id,
+          name: site.name,
+          siteCode: site.site_code,
+        }))
+        .sort((left, right) => left.siteCode.localeCompare(right.siteCode)),
+      subjects,
+    }
   },
 )
 

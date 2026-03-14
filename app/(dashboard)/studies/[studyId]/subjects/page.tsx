@@ -8,7 +8,7 @@ type StudySubjectsPageProps = {
 /** Renders the study subject roster and data-capture summary view. */
 export default async function StudySubjectsPage({ params }: StudySubjectsPageProps) {
   const { studyId } = await params
-  const subjects = await getStudySubjectsWorkspace(studyId)
+  const workspace = await getStudySubjectsWorkspace(studyId)
 
-  return <StudySubjectsWorkspace subjects={subjects} />
+  return <StudySubjectsWorkspace workspace={workspace} />
 }

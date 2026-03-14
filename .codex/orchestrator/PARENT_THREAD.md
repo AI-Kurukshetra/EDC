@@ -235,6 +235,10 @@ Keep this file compact:
   - `/studies/[studyId]/queries` is no longer read-only; it now supports inline response capture, status transitions, and assignee changes from the study queue
   - query cards now show threaded response history with responder identity and timestamps, plus actionable/view-only state for the current viewer
   - query updates now insert `query_responses` records when applicable, update query status/ownership, notify assignees or original raisers when relevant, and write `query.responded` / `query.updated` audit events
+- Phase 2 subject operations are now live in the study shell:
+  - `/studies/[studyId]/subjects` now supports enrolling new subjects into manageable study sites directly from the roster screen
+  - subject cards now support lifecycle updates for status, consent/enrollment dates, and withdrawal documentation instead of being read-only summaries
+  - subject actions now enforce study/site context, record `subject.enrolled` / `subject.updated` audit events, and refresh the related study, data, audit, and admin views
 - Gate/build verification was rerun on March 14, 2026 after the auth recovery slice:
   - `pnpm typecheck`
   - `pnpm lint`
@@ -254,7 +258,7 @@ Keep this file compact:
 ## Exact Next Steps
 
 1. Continue Phase 2 from the admin workspace:
-   - continue from the new governance, site-access, auth-recovery, study-oversight, document-register, signature-oversight, study-document, export-signature, study-signature, data-entry-signature, study-query-triage, document-lifecycle, document-lineage, and study-level sign-off controls and choose the next bounded Phase 2 feature, such as broader signature workflows on other record types or richer document operations beyond metadata/versioning
+   - continue from the new governance, site-access, auth-recovery, study-oversight, document-register, signature-oversight, study-document, export-signature, study-signature, data-entry-signature, study-query-triage, subject-operations, document-lifecycle, document-lineage, and study-level sign-off controls and choose the next bounded Phase 2 feature, such as broader signature workflows on other record types or richer document operations beyond metadata/versioning
 2. Regenerate `types/database.types.ts` from the live schema when convenient.
 3. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
 4. Decide whether to keep or replace the `postbuild` server-chunk workaround after investigating the underlying Next.js runtime path mismatch.

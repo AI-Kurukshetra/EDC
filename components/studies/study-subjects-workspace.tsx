@@ -1,9 +1,9 @@
-import { EmptyState } from '@/components/data-display/EmptyState'
-import { StatCard } from '@/components/data-display/StatCard'
+'use client'
+
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
-import type { StudyOperationsSubject } from '@/types'
+import type { StudyOperationsSubjectsWorkspace } from '@/types'
 
 const SUBJECT_STATUS_VARIANTS = {
   screened: 'muted',
@@ -15,163 +15,85 @@ const SUBJECT_STATUS_VARIANTS = {
 } as const
 
 type StudySubjectsWorkspaceProps = {
-  subjects: StudyOperationsSubject[]
+  workspace: StudyOperationsSubjectsWorkspace
 }
 
-/** Summarizes subject enrollment status and site-level data capture progress for one study. */
-export function StudySubjectsWorkspace({ subjects }: StudySubjectsWorkspaceProps) {
-  if (subjects.length === 0) {
-    return (
-      <EmptyState
-        title="No subjects enrolled yet"
-        description="Once a site enrolls participants, this roster will show subject status, visit activity, and open query load."
-      />
-    )
-  }
-
-  const openQueries = subjects.reduce((count, subject) => count + subject.openQueryCount, 0)
-  const submittedEntries = subjects.reduce(
-    (count, subject) => count + subject.submittedEntryCount,
-    0,
-  )
-  const activeSubjects = subjects.filter((subject) =>
-    ['enrolled', 'randomized', 'completed'].includes(subject.status),
-  ).length
-
+/** Renders the study-subject roster with operational data-capture indicators. */
+export function StudySubjectsWorkspace({ workspace }: StudySubjectsWorkspaceProps) {
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 md:grid-cols-3">
-        <StatCard
-          label="Subjects"
-          value={subjects.length}
-          detail="All screened, enrolled, randomized, completed, and withdrawn participants."
-        />
-        <StatCard
-          label="Active subjects"
-          value={activeSubjects}
-          detail="Participants currently enrolled, randomized, or completed."
-        />
-        <StatCard
-          label="Open queries"
-          value={openQueries}
-          detail="Unresolved data discrepancies tied to this subject roster."
-        />
-      </section>
-
       <Card>
         <CardHeader>
           <CardTitle>Subject roster</CardTitle>
+          <CardDescription>
+            Viewing as {workspace.viewerName ?? workspace.viewerEmail ?? 'unknown user'}.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {subjects.map((subject) => (
-            <div
-              key={subject.id}
-              className="rounded-2xl border border-[color:var(--color-gray-200)] bg-white px-4 py-4"
-            >
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold text-[color:var(--color-gray-900)]">
-                      {subject.subjectId}
-                    </p>
-                    <Badge variant={SUBJECT_STATUS_VARIANTS[subject.status]}>
-                      {subject.status.replaceAll('_', ' ')}
-                    </Badge>
-                    <Badge variant="muted">{subject.siteCode}</Badge>
-                  </div>
-                  <p className="mt-2 text-sm text-[color:var(--color-gray-600)]">
-                    {subject.siteName}
-                    {subject.siteCountry ? ` • ${subject.siteCountry}` : ''}
-                  </p>
-                </div>
-
-                <div className="grid gap-2 text-sm text-[color:var(--color-gray-700)] sm:grid-cols-2 lg:min-w-[20rem]">
-                  <div className="rounded-xl bg-[color:var(--color-gray-50)] px-3 py-3">
-                    <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
-                      Entries
-                    </p>
-                    <p className="mt-1 font-medium">
-                      {subject.submittedEntryCount} submitted / {subject.entryCount} total
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-[color:var(--color-gray-50)] px-3 py-3">
-                    <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
-                      Queries
-                    </p>
-                    <p className="mt-1 font-medium">{subject.openQueryCount} open</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-3 text-sm text-[color:var(--color-gray-700)] md:grid-cols-4">
-                <div className="rounded-xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-3 py-3">
-                  <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
-                    Consent date
-                  </p>
-                  <p className="mt-1 font-medium">{formatDate(subject.consentDate)}</p>
-                </div>
-                <div className="rounded-xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-3 py-3">
-                  <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
-                    Enrollment date
-                  </p>
-                  <p className="mt-1 font-medium">{formatDate(subject.enrollmentDate)}</p>
-                </div>
-                <div className="rounded-xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-3 py-3">
-                  <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
-                    Last visit
-                  </p>
-                  <p className="mt-1 font-medium">{formatDate(subject.lastVisitDate)}</p>
-                </div>
-                <div className="rounded-xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-3 py-3">
-                  <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
-                    Last submission
-                  </p>
-                  <p className="mt-1 font-medium">{formatDateTime(subject.lastSubmittedAt)}</p>
-                </div>
-              </div>
-
-              {subject.withdrawalDate || subject.withdrawalReason ? (
-                <div className="mt-4 rounded-xl border border-[color:var(--color-warning-100)] bg-[color:var(--color-warning-50)] px-4 py-3 text-sm text-[color:var(--color-gray-700)]">
-                  Withdrawal recorded on {formatDate(subject.withdrawalDate)}
-                  {subject.withdrawalReason ? ` • ${subject.withdrawalReason}` : ''}
-                </div>
-              ) : null}
+        <CardContent className="overflow-x-auto px-0 pb-0">
+          {workspace.subjects.length === 0 ? (
+            <div className="px-6 pb-6 text-sm text-[color:var(--color-gray-600)]">
+              No subjects are available for this study yet.
             </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Data capture pulse</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-4">
-            <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
-              Submitted entries
-            </p>
-            <p className="mt-2 text-3xl font-semibold">{submittedEntries}</p>
-          </div>
-          <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-4">
-            <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
-              Average entries
-            </p>
-            <p className="mt-2 text-3xl font-semibold">
-              {Math.round(
-                (subjects.reduce((count, subject) => count + subject.entryCount, 0) /
-                  subjects.length) *
-                  10,
-              ) / 10}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-4">
-            <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
-              Query burden
-            </p>
-            <p className="mt-2 text-3xl font-semibold">
-              {Math.round((openQueries / subjects.length) * 10) / 10}
-            </p>
-          </div>
+          ) : (
+            <table className="min-w-full border-collapse">
+              <thead>
+                <tr className="border-b border-[color:var(--color-gray-100)] text-left">
+                  <th className="px-6 py-3 text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                    Subject
+                  </th>
+                  <th className="px-6 py-3 text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                    Site
+                  </th>
+                  <th className="px-6 py-3 text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                    Entries
+                  </th>
+                  <th className="px-6 py-3 text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                    Open queries
+                  </th>
+                  <th className="px-6 py-3 text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                    Last submitted
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {workspace.subjects.map((subject, index) => (
+                  <tr
+                    key={subject.id}
+                    className={index % 2 === 0 ? 'bg-white' : 'bg-[color:var(--color-gray-50)]'}
+                  >
+                    <td className="px-6 py-4 align-top">
+                      <p className="font-medium text-[color:var(--color-gray-900)]">
+                        {subject.subjectId}
+                      </p>
+                      <p className="mt-1 text-xs text-[color:var(--color-gray-600)]">
+                        Enrolled {formatDate(subject.enrollmentDate)}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-[color:var(--color-gray-700)]">
+                      {subject.siteName} ({subject.siteCode})
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant={SUBJECT_STATUS_VARIANTS[subject.status]}>
+                        {subject.status.replaceAll('_', ' ')}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-[color:var(--color-gray-700)]">
+                      {subject.submittedEntryCount}/{subject.entryCount}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-[color:var(--color-gray-700)]">
+                      {subject.openQueryCount}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-[color:var(--color-gray-700)]">
+                      {formatDateTime(subject.lastSubmittedAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </CardContent>
       </Card>
     </div>
