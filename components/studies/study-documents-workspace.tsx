@@ -103,8 +103,11 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
     (count, document) => count + document.signatureCount,
     0,
   )
-  const latestDocumentCount = workspace.documents.filter((document) => document.isLatestVersion).length
-  const versionedFamilyCount = workspace.documents.filter((document) => document.isLatestVersion)
+  const latestDocumentCount = workspace.documents.filter(
+    (document) => document.isLatestVersion,
+  ).length
+  const versionedFamilyCount = workspace.documents
+    .filter((document) => document.isLatestVersion)
     .filter((document) => document.familyVersionCount > 1).length
 
   function resetComposer() {
@@ -541,9 +544,7 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
                       <Badge variant={document.isLatestVersion ? 'success' : 'muted'}>
                         {document.isLatestVersion ? 'current' : 'superseded'}
                       </Badge>
-                      {document.signatureCount > 0 ? (
-                        <Badge variant="danger">locked</Badge>
-                      ) : null}
+                      {document.signatureCount > 0 ? <Badge variant="danger">locked</Badge> : null}
                     </div>
                     <p className="mt-2 font-[family-name:var(--font-mono)] text-xs text-[color:var(--color-gray-600)]">
                       {document.filePath}
@@ -625,7 +626,7 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
                               variant={versionEntry.signatureCount > 0 ? 'success' : 'warning'}
                             >
                               {versionEntry.signatureCount > 0
-                                ? `${versionEntry.signatureCount} signed`
+                                ? `${String(versionEntry.signatureCount)} signed`
                                 : 'unsigned'}
                             </Badge>
                           </div>
@@ -778,13 +779,15 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
                               handleCreateNextVersion(document.id)
                             }}
                           >
-                            {isManagingLifecycle
-                              ? lifecycleMode === 'edit'
-                                ? 'Saving...'
-                                : 'Creating...'
-                              : lifecycleMode === 'edit'
+                            {(() => {
+                              if (isManagingLifecycle) {
+                                return lifecycleMode === 'edit' ? 'Saving...' : 'Creating...'
+                              }
+
+                              return lifecycleMode === 'edit'
                                 ? 'Save metadata'
-                                : 'Create next version'}
+                                : 'Create next version'
+                            })()}
                           </Button>
                         </div>
                       </div>

@@ -307,8 +307,21 @@ async function main() {
       is_published: true,
       schema: {
         fields: [
-          { id: 'rhythm', label: 'Heart rhythm', type: 'select', required: true, options: ['Normal', 'Abnormal'], validation: {} },
-          { id: 'qtc', label: 'QTc (ms)', type: 'number', required: true, validation: { min: 300, max: 600 } },
+          {
+            id: 'rhythm',
+            label: 'Heart rhythm',
+            type: 'select',
+            required: true,
+            options: ['Normal', 'Abnormal'],
+            validation: {},
+          },
+          {
+            id: 'qtc',
+            label: 'QTc (ms)',
+            type: 'number',
+            required: true,
+            validation: { min: 300, max: 600 },
+          },
         ],
       },
       visit_schedule: { visitKey: 'screening', dayOffset: 0, repeatable: false },
@@ -322,11 +335,29 @@ async function main() {
       is_published: true,
       schema: {
         fields: [
-          { id: 'ldl', label: 'LDL', type: 'number', required: true, validation: { min: 20, max: 300 } },
-          { id: 'hdl', label: 'HDL', type: 'number', required: true, validation: { min: 10, max: 120 } },
+          {
+            id: 'ldl',
+            label: 'LDL',
+            type: 'number',
+            required: true,
+            validation: { min: 20, max: 300 },
+          },
+          {
+            id: 'hdl',
+            label: 'HDL',
+            type: 'number',
+            required: true,
+            validation: { min: 10, max: 120 },
+          },
         ],
       },
-      visit_schedule: { visitKey: 'visit_1', dayOffset: 14, windowBefore: 2, windowAfter: 3, repeatable: false },
+      visit_schedule: {
+        visitKey: 'visit_1',
+        dayOffset: 14,
+        windowBefore: 2,
+        windowAfter: 3,
+        repeatable: false,
+      },
     },
     {
       id: TEMPLATE_IDS.baseline,
@@ -337,8 +368,20 @@ async function main() {
       is_published: true,
       schema: {
         fields: [
-          { id: 'bmi', label: 'BMI', type: 'number', required: true, validation: { min: 15, max: 60 } },
-          { id: 'hba1c', label: 'HbA1c', type: 'number', required: true, validation: { min: 4, max: 15 } },
+          {
+            id: 'bmi',
+            label: 'BMI',
+            type: 'number',
+            required: true,
+            validation: { min: 15, max: 60 },
+          },
+          {
+            id: 'hba1c',
+            label: 'HbA1c',
+            type: 'number',
+            required: true,
+            validation: { min: 4, max: 15 },
+          },
         ],
       },
       visit_schedule: { visitKey: 'baseline', dayOffset: 1, repeatable: false },
@@ -352,11 +395,30 @@ async function main() {
       is_published: true,
       schema: {
         fields: [
-          { id: 'exercise_minutes', label: 'Exercise minutes/week', type: 'number', required: true, validation: { min: 0, max: 1200 } },
-          { id: 'diet_adherence', label: 'Diet adherence', type: 'radio', required: true, options: ['Poor', 'Average', 'Good'], validation: {} },
+          {
+            id: 'exercise_minutes',
+            label: 'Exercise minutes/week',
+            type: 'number',
+            required: true,
+            validation: { min: 0, max: 1200 },
+          },
+          {
+            id: 'diet_adherence',
+            label: 'Diet adherence',
+            type: 'radio',
+            required: true,
+            options: ['Poor', 'Average', 'Good'],
+            validation: {},
+          },
         ],
       },
-      visit_schedule: { visitKey: 'week_4', dayOffset: 28, windowBefore: 3, windowAfter: 3, repeatable: true },
+      visit_schedule: {
+        visitKey: 'week_4',
+        dayOffset: 28,
+        windowBefore: 3,
+        windowAfter: 3,
+        repeatable: true,
+      },
     },
   ])
 

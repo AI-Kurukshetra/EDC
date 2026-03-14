@@ -111,7 +111,7 @@ export async function requestStudyExport(
       }
     }
 
-    if (reauthResult.data.user?.id !== profile.data.id) {
+    if (reauthResult.data.user.id !== profile.data.id) {
       return { success: false, error: 'Unable to verify your signing identity.' }
     }
 

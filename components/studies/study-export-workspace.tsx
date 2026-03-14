@@ -50,7 +50,9 @@ export function StudyExportWorkspace({ workspace }: StudyExportWorkspaceProps) {
     EXPORT_SIGNATURE_MEANINGS[0],
   )
   const [signaturePassword, setSignaturePassword] = useState('')
-  const [signaturePreviewAt, setSignaturePreviewAt] = useState<string | null>(new Date().toISOString())
+  const [signaturePreviewAt, setSignaturePreviewAt] = useState<string | null>(
+    new Date().toISOString(),
+  )
 
   function handleRequestExport(format: ExportFormat) {
     startTransition(() => {
@@ -189,7 +191,9 @@ export function StudyExportWorkspace({ workspace }: StudyExportWorkspaceProps) {
 
             <div className="mt-4">
               <Button
-                disabled={isPending || !workspace.canSignExports || signaturePassword.trim().length === 0}
+                disabled={
+                  isPending || !workspace.canSignExports || signaturePassword.trim().length === 0
+                }
                 type="button"
                 onClick={() => {
                   handleRequestExport(selectedFormat)

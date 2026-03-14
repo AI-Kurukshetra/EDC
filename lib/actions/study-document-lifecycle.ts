@@ -6,11 +6,11 @@ import { z } from 'zod'
 
 import { invokeEdgeFunction } from '@/lib/supabase/functions'
 import { getAuthenticatedUser, getServerSupabase } from '@/lib/supabase/server'
+import { PostgresUuidSchema } from '@/lib/validations/identifiers'
 import {
   CreateStudyDocumentVersionSchema,
   UpdateStudyDocumentSchema,
 } from '@/lib/validations/study-document-lifecycle.schema'
-import { PostgresUuidSchema } from '@/lib/validations/identifiers'
 import { USER_ROLES } from '@/types'
 
 import type { ActionResult } from '@/types/actions'
@@ -54,7 +54,11 @@ function canManageStudyDocuments(
   )
 }
 
-async function loadStudyDocumentLifecycleContext(studyId: string, documentId: string, userId: string) {
+async function loadStudyDocumentLifecycleContext(
+  studyId: string,
+  documentId: string,
+  userId: string,
+) {
   const supabase = await getServerSupabase()
   const [viewerResult, studyResult, documentResult] = await Promise.all([
     supabase.from('profiles').select('id, full_name, role, is_active').eq('id', userId).single(),
@@ -97,8 +101,7 @@ async function loadStudyDocumentLifecycleContext(studyId: string, documentId: st
   if (!canManageStudyDocuments(viewer.data, study.data)) {
     return {
       success: false as const,
-      error:
-        'Only the study sponsor, data managers, or super admins can manage study documents.',
+      error: 'Only the study sponsor, data managers, or super admins can manage study documents.',
     }
   }
 
@@ -150,7 +153,8 @@ export async function updateStudyDocument(
   if ((signatureCountResult.count ?? 0) > 0) {
     return {
       success: false,
-      error: 'Signed study documents are locked. Create a next version instead of editing in place.',
+      error:
+        'Signed study documents are locked. Create a next version instead of editing in place.',
     }
   }
 
@@ -254,7 +258,10 @@ export async function createStudyDocumentVersion(
     return { success: false, error: 'Unable to determine the next document version.' }
   }
 
-  if (parsed.data.name !== context.document.name || parsed.data.category !== context.document.category) {
+  if (
+    parsed.data.name !== context.document.name ||
+    parsed.data.category !== context.document.category
+  ) {
     return {
       success: false,
       error:
