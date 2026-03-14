@@ -260,6 +260,8 @@ const getStudyOperationsBase = cache(async (studyId: string): Promise<StudyOpera
   const siteIds = sites.map((site) => site.id)
   const subjectIds = subjects.map((subject) => subject.id)
   const documentIds = documents.map((document) => document.id)
+  const exportIds = exports.map((exportRow) => exportRow.id)
+  const signatureEntityIds = [...documentIds, ...exportIds]
 
   const [siteUsersResult, entriesResult, queriesResult, signaturesResult] = await Promise.all([
     siteIds.length > 0
@@ -287,12 +289,12 @@ const getStudyOperationsBase = cache(async (studyId: string): Promise<StudyOpera
           .in('subject_id', subjectIds)
           .order('updated_at', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
-    documentIds.length > 0
+    signatureEntityIds.length > 0
       ? supabase
           .from('signatures')
           .select('id, entity_type, entity_id, signed_by, signature_meaning, signed_at')
-          .eq('entity_type', 'study_document')
-          .in('entity_id', documentIds)
+          .in('entity_type', ['study_document', 'data_export'])
+          .in('entity_id', signatureEntityIds)
           .order('signed_at', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
   ])
@@ -811,13 +813,30 @@ export const getStudyDocumentsWorkspace = cache(
 
 export const getStudyExportWorkspace = cache(
   async (studyId: string): Promise<StudyOperationsExportWorkspace> => {
-    const data = await getStudyOperationsBase(studyId)
+    const [data, viewer] = await Promise.all([
+      getStudyOperationsBase(studyId),
+      getCurrentSessionProfile(),
+    ])
     const { profileById } = buildLookupMaps(data)
 
     const openQueryCount = data.queries.filter((query) => query.status === 'open').length
+    const exportSignaturesByExportId = new Map<string, z.infer<typeof SignatureRowSchema>[]>()
+
+    for (const signature of data.signatures) {
+      if (signature.entity_type !== 'data_export') {
+        continue
+      }
+
+      const existing = exportSignaturesByExportId.get(signature.entity_id) ?? []
+      existing.push(signature)
+      exportSignaturesByExportId.set(signature.entity_id, existing)
+    }
 
     const exports: StudyOperationsExport[] = data.exports.map((exportRow) => {
       const requestedBy = profileById.get(exportRow.requested_by)
+      const exportSignatures = exportSignaturesByExportId.get(exportRow.id) ?? []
+      const latestSignature = exportSignatures[0] ?? null
+      const latestSigner = latestSignature ? profileById.get(latestSignature.signed_by) : null
 
       return {
         id: exportRow.id,
@@ -830,12 +849,25 @@ export const getStudyExportWorkspace = cache(
         completedAt: exportRow.completed_at,
         signedUrlExpiresAt: exportRow.signed_url_expires_at,
         createdAt: exportRow.created_at,
+        signatureCount: exportSignatures.length,
+        latestSignedAt: latestSignature?.signed_at ?? null,
+        latestSignedByName: latestSigner?.full_name ?? null,
+        latestSignedByEmail: latestSigner?.email ?? null,
+        latestSignatureMeaning: latestSignature?.signature_meaning ?? null,
       }
     })
 
     return {
       studyId: data.study.id,
       studyTitle: data.study.title,
+      canSignExports:
+        viewer?.isActive === true &&
+        (viewer.id === data.study.sponsor_id ||
+          viewer.role === 'super_admin' ||
+          viewer.role === 'data_manager' ||
+          viewer.role === 'monitor'),
+      viewerName: viewer?.fullName ?? null,
+      viewerEmail: viewer?.email ?? null,
       subjectCount: data.subjects.length,
       formCount: data.templates.filter((template) => template.is_published).length,
       entryCount: data.entries.length,

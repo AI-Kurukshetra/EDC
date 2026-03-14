@@ -19,6 +19,7 @@
     "gate": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm circular && pnpm deps:check && pnpm deps:audit",
     "gate:fix": "pnpm format && pnpm lint:fix",
     "seed:data": "node scripts/seedData.cjs",
+    "seed:data:extended": "node scripts/seedExtendedData.cjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test"

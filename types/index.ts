@@ -109,6 +109,14 @@ export const DOCUMENT_SIGNATURE_MEANINGS = [
 
 export type DocumentSignatureMeaning = (typeof DOCUMENT_SIGNATURE_MEANINGS)[number]
 
+export const EXPORT_SIGNATURE_MEANINGS = [
+  'I certify this export is being requested for authorized study use.',
+  'I acknowledge responsibility for handling this export securely.',
+  'I approve this export for operational review.',
+] as const
+
+export type ExportSignatureMeaning = (typeof EXPORT_SIGNATURE_MEANINGS)[number]
+
 export type CrfFieldCondition = {
   fieldId: string
   operator: CrfConditionOperator
@@ -375,6 +383,11 @@ export type StudyOperationsExport = {
   completedAt: string | null
   signedUrlExpiresAt: string | null
   createdAt: string
+  signatureCount: number
+  latestSignedAt: string | null
+  latestSignedByName: string | null
+  latestSignedByEmail: string | null
+  latestSignatureMeaning: string | null
 }
 
 export type StudyExportOption = {
@@ -392,6 +405,9 @@ export type StudySiteOption = {
 export type StudyOperationsExportWorkspace = {
   studyId: string
   studyTitle: string
+  canSignExports: boolean
+  viewerName: string | null
+  viewerEmail: string | null
   subjectCount: number
   formCount: number
   entryCount: number
