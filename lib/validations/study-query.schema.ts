@@ -31,14 +31,11 @@ export const UpdateStudyQuerySchema = z
     actionTaken: z.preprocess(normalizeOptionalText, z.string().max(2000).optional()),
   })
   .superRefine((data, context) => {
-    const hasResponseContent = Boolean(data.responseText || data.actionTaken)
+    const hasResponseContent = Boolean(data.responseText ?? data.actionTaken)
 
-    if (
-      ['answered', 'closed', 'cancelled'].includes(data.nextStatus) &&
-      !hasResponseContent
-    ) {
+    if (['answered', 'closed', 'cancelled'].includes(data.nextStatus) && !hasResponseContent) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Provide a response or action summary before updating this query status.',
         path: ['responseText'],
       })

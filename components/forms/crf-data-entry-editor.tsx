@@ -430,9 +430,9 @@ export function CrfDataEntryEditor({
   const isRepeatable = Boolean(template.visitSchedule?.repeatable)
   const canCaptureSignature = Boolean(
     entry &&
-      canSignEntries &&
-      (entry.status === 'submitted' || entry.status === 'sdv_required') &&
-      entry.signatureCount === 0,
+    canSignEntries &&
+    (entry.status === 'submitted' || entry.status === 'sdv_required') &&
+    entry.signatureCount === 0,
   )
 
   function handleStartSave(mode: SaveMode) {
@@ -602,9 +602,9 @@ export function CrfDataEntryEditor({
               <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
                 Locked at
               </p>
-                <p className="mt-2 font-medium text-[color:var(--color-gray-900)]">
-                  {formatLockTimestampLabel(entry.lockedAt)}
-                </p>
+              <p className="mt-2 font-medium text-[color:var(--color-gray-900)]">
+                {formatLockTimestampLabel(entry.lockedAt)}
+              </p>
               <p className="mt-1 text-xs text-[color:var(--color-gray-600)]">
                 {entry.lockedByName ?? 'No locking signer recorded'}
               </p>
@@ -678,9 +678,9 @@ export function CrfDataEntryEditor({
                 Electronic record declaration
               </p>
               <p className="mt-2 leading-6">
-                By signing, you confirm that this electronic signature is legally equivalent to
-                your handwritten signature for this submitted eCRF record and that the entry should
-                be locked against further edits.
+                By signing, you confirm that this electronic signature is legally equivalent to your
+                handwritten signature for this submitted eCRF record and that the entry should be
+                locked against further edits.
               </p>
               <p className="mt-2">
                 Signer: {viewerName ?? 'Current user'} {viewerEmail ? `(${viewerEmail})` : ''}
@@ -703,7 +703,9 @@ export function CrfDataEntryEditor({
               </label>
 
               <Button
-                disabled={!canCaptureSignature || isSigning || signaturePassword.trim().length === 0}
+                disabled={
+                  !canCaptureSignature || isSigning || signaturePassword.trim().length === 0
+                }
                 type="button"
                 onClick={handleSignEntry}
               >

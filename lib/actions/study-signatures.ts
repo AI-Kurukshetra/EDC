@@ -13,9 +13,8 @@ import {
   SignStudyDocumentSchema,
   SignStudySchema,
 } from '@/lib/validations/study-signature.schema'
-import { DATA_ENTRY_STATUSES, USER_ROLES } from '@/types'
+import { DATA_ENTRY_STATUSES, USER_ROLES, type StudyDataEntry } from '@/types'
 
-import type { StudyDataEntry } from '@/types'
 import type { ActionResult } from '@/types/actions'
 
 const ViewerProfileSchema = z.object({
@@ -73,7 +72,9 @@ const SubjectStudyLinkSchema = z.object({
   subject_id: z.string(),
 })
 
-function normalizeEntryData(raw: z.infer<typeof StudyDataEntryRowSchema>['data']): StudyDataEntry['data'] {
+function normalizeEntryData(
+  raw: z.infer<typeof StudyDataEntryRowSchema>['data'],
+): StudyDataEntry['data'] {
   const normalized: StudyDataEntry['data'] = {}
 
   for (const [fieldId, value] of Object.entries(raw)) {
@@ -408,8 +409,7 @@ export async function signStudyDataEntry(
   if (!canSignEntry) {
     return {
       success: false,
-      error:
-        'Only investigators, coordinators, monitors, data managers, or super admins can sign.',
+      error: 'Only investigators, coordinators, monitors, data managers, or super admins can sign.',
     }
   }
 

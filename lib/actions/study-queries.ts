@@ -162,7 +162,7 @@ export async function updateStudyQuery(
     return { success: false, error: 'You do not have permission to update this query.' }
   }
 
-  const hasResponseContent = Boolean(parsed.data.responseText || parsed.data.actionTaken)
+  const hasResponseContent = Boolean(parsed.data.responseText ?? parsed.data.actionTaken)
   const isStatusChange = parsed.data.nextStatus !== query.data.status
   const isAssignmentChange = parsed.data.assignedToId !== query.data.assigned_to
 
@@ -170,9 +170,7 @@ export async function updateStudyQuery(
     return { success: false, error: 'No query changes were provided.' }
   }
 
-  let assignee:
-    | z.infer<typeof AssigneeProfileSchema>
-    | null = null
+  let assignee: z.infer<typeof AssigneeProfileSchema> | null = null
 
   if (parsed.data.assignedToId) {
     const [assigneeResult, siteMembershipResult] = await Promise.all([
@@ -288,7 +286,7 @@ export async function updateStudyQuery(
     hasResponseContent &&
     query.data.raised_by &&
     query.data.raised_by !== viewer.data.id &&
-    (!assignee || assignee.id !== query.data.raised_by)
+    assignee?.id !== query.data.raised_by
   ) {
     try {
       await invokeEdgeFunction('send-notification', {

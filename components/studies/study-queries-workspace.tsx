@@ -180,7 +180,8 @@ function QueryCard({ assigneeOptions, query, studyId }: QueryCardProps) {
                     </p>
                   ) : null}
                   <p className="mt-2 text-xs text-[color:var(--color-gray-600)]">
-                    {response.respondedByName ?? 'Unknown user'} • {formatDateTime(response.createdAt)}
+                    {response.respondedByName ?? 'Unknown user'} •{' '}
+                    {formatDateTime(response.createdAt)}
                   </p>
                 </div>
               ))}
@@ -383,7 +384,7 @@ export function StudyQueriesWorkspace({ workspace }: StudyQueriesWorkspaceProps)
           ) : (
             filteredQueries.map((query) => (
               <QueryCard
-                key={`${query.id}:${query.updatedAt}:${query.responseCount}`}
+                key={`${query.id}:${query.updatedAt}:${String(query.responseCount)}`}
                 assigneeOptions={workspace.assigneeOptions}
                 query={query}
                 studyId={workspace.studyId}

@@ -177,7 +177,7 @@ export function StudyFormsWorkspace({ studyId, templates }: StudyFormsWorkspaceP
   })
 
   const watchedValues = form.watch()
-  const watchedSchema = watchedValues.schema ?? initialTemplateValues.schema
+  const watchedSchema = watchedValues.schema
   const watchedSchemaFields = watchedSchema.fields
 
   const watchedFields = watchedSchemaFields.map((field, index) =>

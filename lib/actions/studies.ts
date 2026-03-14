@@ -75,21 +75,19 @@ export async function createStudy(raw: unknown): Promise<ActionResult<{ id: stri
 
   const studyId = crypto.randomUUID()
 
-  const studyResult = await supabase
-    .from('studies')
-    .insert({
-      id: studyId,
-      title: parsed.data.title,
-      protocol_number: parsed.data.protocolNumber,
-      phase: parsed.data.phase,
-      description: parsed.data.description ?? null,
-      sponsor_id: user.id,
-      status: 'draft',
-      therapeutic_area: parsed.data.therapeuticArea ?? null,
-      target_enrollment: parsed.data.targetEnrollment ?? null,
-      start_date: parsed.data.startDate ?? null,
-      end_date: parsed.data.endDate ?? null,
-    })
+  const studyResult = await supabase.from('studies').insert({
+    id: studyId,
+    title: parsed.data.title,
+    protocol_number: parsed.data.protocolNumber,
+    phase: parsed.data.phase,
+    description: parsed.data.description ?? null,
+    sponsor_id: user.id,
+    status: 'draft',
+    therapeutic_area: parsed.data.therapeuticArea ?? null,
+    target_enrollment: parsed.data.targetEnrollment ?? null,
+    start_date: parsed.data.startDate ?? null,
+    end_date: parsed.data.endDate ?? null,
+  })
 
   if (studyResult.error) {
     if (studyResult.error.message.toLowerCase().includes('row-level security policy')) {

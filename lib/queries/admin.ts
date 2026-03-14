@@ -180,17 +180,17 @@ function resolveAdminSignatureEntityContext(
     const study = subject ? options.studyById.get(subject.study_id) : null
     const template = dataEntry ? options.formTemplatesById.get(dataEntry.form_template_id) : null
 
-      return {
-        entityLabel:
-          dataEntry && subject
-            ? `${subject.subject_id} • Visit ${String(dataEntry.visit_number)}`
-            : null,
-        entityContext:
-          study && template && dataEntry
-            ? `${study.protocol_number} • ${template.name} • ${dataEntry.status}`
-            : null,
-      }
+    return {
+      entityLabel:
+        dataEntry && subject
+          ? `${subject.subject_id} • Visit ${String(dataEntry.visit_number)}`
+          : null,
+      entityContext:
+        study && template && dataEntry
+          ? `${study.protocol_number} • ${template.name} • ${dataEntry.status}`
+          : null,
     }
+  }
 
   if (signature.entity_type === 'profile') {
     const profile = options.profileById.get(signature.entity_id)

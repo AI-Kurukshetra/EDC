@@ -578,9 +578,14 @@ export const getStudyQueriesWorkspace = cache(
       studyId: data.study.id,
       canManageQueries:
         viewer?.isActive === true &&
-        ['super_admin', 'sponsor', 'data_manager', 'monitor', 'investigator', 'coordinator'].includes(
-          viewer.role,
-        ),
+        [
+          'super_admin',
+          'sponsor',
+          'data_manager',
+          'monitor',
+          'investigator',
+          'coordinator',
+        ].includes(viewer.role),
       viewerName: viewer?.fullName ?? null,
       viewerEmail: viewer?.email ?? null,
       viewerRole: viewer?.role ?? null,
