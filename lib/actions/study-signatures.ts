@@ -8,7 +8,7 @@ import { invokeEdgeFunction } from '@/lib/supabase/functions'
 import { getAuthenticatedUser, getServerSupabase } from '@/lib/supabase/server'
 import { sha256 } from '@/lib/utils/crypto'
 import { PostgresUuidSchema } from '@/lib/validations/identifiers'
-import { SignStudyDocumentSchema } from '@/lib/validations/study-signature.schema'
+import { SignStudyDocumentSchema, SignStudySchema } from '@/lib/validations/study-signature.schema'
 import { USER_ROLES } from '@/types'
 
 import type { ActionResult } from '@/types/actions'
@@ -29,6 +29,15 @@ const StudyDocumentRowSchema = z.object({
   category: z.string(),
 })
 
+const StudyRowSchema = z.object({
+  id: PostgresUuidSchema,
+  title: z.string(),
+  protocol_number: z.string(),
+  phase: z.string(),
+  status: z.string(),
+  sponsor_id: PostgresUuidSchema.nullable(),
+})
+
 const ExistingSignatureRowSchema = z.object({
   id: PostgresUuidSchema,
 })
@@ -36,6 +45,179 @@ const ExistingSignatureRowSchema = z.object({
 const InsertedSignatureRowSchema = z.object({
   id: PostgresUuidSchema,
 })
+
+/** Captures an immutable signature for the study record after password re-authentication. */
+export async function signStudyRecord(
+  raw: unknown,
+): Promise<ActionResult<{ signatureId: string; studyId: string }>> {
+  const parsed = SignStudySchema.safeParse(raw)
+
+  if (!parsed.success) {
+    return { success: false, error: 'Invalid signature request.' }
+  }
+
+  const user = await getAuthenticatedUser()
+
+  if (!user) {
+    return { success: false, error: 'You must be signed in to capture a signature.' }
+  }
+
+  const supabase = await getServerSupabase()
+  const [viewerResult, studyResult] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, full_name, email, role, is_active')
+      .eq('id', user.id)
+      .single(),
+    supabase
+      .from('studies')
+      .select('id, title, protocol_number, phase, status, sponsor_id')
+      .eq('id', parsed.data.studyId)
+      .maybeSingle(),
+  ])
+
+  if (viewerResult.error) {
+    return { success: false, error: viewerResult.error.message }
+  }
+
+  if (studyResult.error) {
+    return { success: false, error: studyResult.error.message }
+  }
+
+  if (!studyResult.data) {
+    return { success: false, error: 'This study could not be found.' }
+  }
+
+  const viewer = ViewerProfileSchema.safeParse(viewerResult.data)
+  const study = StudyRowSchema.safeParse(studyResult.data)
+
+  if (!viewer.success || !study.success) {
+    return { success: false, error: 'Unable to validate the requested signature context.' }
+  }
+
+  if (!viewer.data.is_active) {
+    return { success: false, error: 'Your account is inactive. Contact an administrator.' }
+  }
+
+  const canSignStudy =
+    study.data.sponsor_id === viewer.data.id ||
+    viewer.data.role === 'super_admin' ||
+    viewer.data.role === 'data_manager' ||
+    viewer.data.role === 'monitor'
+
+  if (!canSignStudy) {
+    return {
+      success: false,
+      error: 'Only the study sponsor, monitors, data managers, or super admins can sign.',
+    }
+  }
+
+  const reauthResult = await supabase.auth.signInWithPassword({
+    email: viewer.data.email,
+    password: parsed.data.password,
+  })
+
+  if (reauthResult.error) {
+    return { success: false, error: 'Password verification failed. Signature not captured.' }
+  }
+
+  if (reauthResult.data.user.id !== viewer.data.id) {
+    return { success: false, error: 'Unable to verify your signing identity.' }
+  }
+
+  const duplicateSignatureResult = await supabase
+    .from('signatures')
+    .select('id')
+    .eq('entity_type', 'study')
+    .eq('entity_id', study.data.id)
+    .eq('signed_by', viewer.data.id)
+    .eq('signature_meaning', parsed.data.signatureMeaning)
+    .limit(1)
+    .maybeSingle()
+
+  if (duplicateSignatureResult.error) {
+    return { success: false, error: duplicateSignatureResult.error.message }
+  }
+
+  if (duplicateSignatureResult.data) {
+    const duplicateSignature = ExistingSignatureRowSchema.safeParse(duplicateSignatureResult.data)
+
+    if (duplicateSignature.success) {
+      return {
+        success: false,
+        error: 'You already signed this study with the same certification meaning.',
+      }
+    }
+  }
+
+  const signedAt = new Date().toISOString()
+  const certificateHash = await sha256(
+    [
+      viewer.data.id,
+      viewer.data.email,
+      study.data.id,
+      study.data.protocol_number,
+      study.data.status,
+      parsed.data.signatureMeaning,
+      signedAt,
+    ].join(':'),
+  )
+
+  const insertResult = await supabase
+    .from('signatures')
+    .insert({
+      entity_type: 'study',
+      entity_id: study.data.id,
+      signed_by: viewer.data.id,
+      signature_meaning: parsed.data.signatureMeaning,
+      signed_at: signedAt,
+      certificate_hash: certificateHash,
+    })
+    .select('id')
+    .single()
+
+  if (insertResult.error) {
+    return { success: false, error: insertResult.error.message }
+  }
+
+  const insertedSignature = InsertedSignatureRowSchema.safeParse(insertResult.data)
+
+  if (!insertedSignature.success) {
+    return { success: false, error: 'Unable to validate the saved signature record.' }
+  }
+
+  try {
+    await invokeEdgeFunction('audit-log', {
+      user_id: viewer.data.id,
+      action: 'signature.captured',
+      entity_type: 'study',
+      entity_id: study.data.id,
+      metadata: {
+        study_id: study.data.id,
+        study_title: study.data.title,
+        protocol_number: study.data.protocol_number,
+        phase: study.data.phase,
+        status: study.data.status,
+        signature_meaning: parsed.data.signatureMeaning,
+        signature_id: insertedSignature.data.id,
+      },
+    })
+  } catch (error) {
+    console.warn('Study signature audit log failed', error)
+  }
+
+  revalidatePath(`/studies/${study.data.id}`)
+  revalidatePath(`/studies/${study.data.id}/audit`)
+  revalidatePath('/admin')
+
+  return {
+    success: true,
+    data: {
+      signatureId: insertedSignature.data.id,
+      studyId: study.data.id,
+    },
+  }
+}
 
 /** Captures an immutable signature for a study document after password re-authentication. */
 export async function signStudyDocument(

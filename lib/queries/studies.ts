@@ -2,10 +2,17 @@ import { cache } from 'react'
 
 import { z } from 'zod'
 
+import { getCurrentSessionProfile } from '@/lib/queries/account'
 import { getServerSupabase } from '@/lib/supabase/server'
 import { PostgresUuidSchema } from '@/lib/validations/identifiers'
 import { type StudyFilters, StudyFiltersSchema } from '@/lib/validations/study.schema'
-import type { StudyDetail, StudySummary } from '@/types'
+import {
+  STUDY_SIGNATURE_MEANINGS,
+  USER_ROLES,
+  type StudyDetail,
+  type StudyOverviewWorkspace,
+  type StudySummary,
+} from '@/types'
 
 const StudySummaryRowSchema = z.object({
   id: PostgresUuidSchema,
@@ -34,6 +41,22 @@ const SiteRowSchema = z.object({
 
 const StudyDetailRowSchema = StudySummaryRowSchema.extend({
   description: z.string().nullable(),
+})
+
+const StudySignatureRowSchema = z.object({
+  id: PostgresUuidSchema,
+  signed_by: PostgresUuidSchema,
+  signature_meaning: z.enum(STUDY_SIGNATURE_MEANINGS),
+  signed_at: z.string(),
+  created_at: z.string(),
+  certificate_hash: z.string(),
+})
+
+const SignatureProfileRowSchema = z.object({
+  id: PostgresUuidSchema,
+  full_name: z.string(),
+  email: z.email(),
+  role: z.enum(USER_ROLES),
 })
 
 function getExactCount(count: number | null): number {
@@ -184,3 +207,70 @@ export const getStudyDetail = cache(async (studyId: string): Promise<StudyDetail
     completionRate: totalEntries === 0 ? 0 : (completedEntries / totalEntries) * 100,
   }
 })
+
+export const getStudyOverviewWorkspace = cache(
+  async (studyId: string): Promise<StudyOverviewWorkspace | null> => {
+    const study = await getStudyDetail(studyId)
+
+    if (!study) {
+      return null
+    }
+
+    const supabase = await getServerSupabase()
+    const [viewer, signaturesResult] = await Promise.all([
+      getCurrentSessionProfile(),
+      supabase
+        .from('signatures')
+        .select('id, signed_by, signature_meaning, signed_at, created_at, certificate_hash')
+        .eq('entity_type', 'study')
+        .eq('entity_id', studyId)
+        .order('signed_at', { ascending: false }),
+    ])
+
+    if (signaturesResult.error) {
+      throw new Error(signaturesResult.error.message)
+    }
+
+    const signatures = StudySignatureRowSchema.array().parse(signaturesResult.data)
+    const signerIds = [...new Set(signatures.map((signature) => signature.signed_by))]
+
+    const signerProfilesResult =
+      signerIds.length > 0
+        ? await supabase.from('profiles').select('id, full_name, email, role').in('id', signerIds)
+        : { data: [], error: null }
+
+    if (signerProfilesResult.error) {
+      throw new Error(signerProfilesResult.error.message)
+    }
+
+    const signerProfiles = SignatureProfileRowSchema.array().parse(signerProfilesResult.data)
+    const signerById = new Map(signerProfiles.map((profile) => [profile.id, profile]))
+
+    return {
+      study,
+      canSignStudy:
+        viewer?.isActive === true &&
+        (viewer.id === study.sponsorId ||
+          viewer.role === 'super_admin' ||
+          viewer.role === 'data_manager' ||
+          viewer.role === 'monitor'),
+      viewerName: viewer?.fullName ?? null,
+      viewerEmail: viewer?.email ?? null,
+      viewerRole: viewer?.role ?? null,
+      signatures: signatures.map((signature) => {
+        const signer = signerById.get(signature.signed_by)
+
+        return {
+          id: signature.id,
+          signatureMeaning: signature.signature_meaning,
+          signedAt: signature.signed_at,
+          createdAt: signature.created_at,
+          certificateHash: signature.certificate_hash,
+          signedByName: signer?.full_name ?? null,
+          signedByEmail: signer?.email ?? null,
+          signedByRole: signer?.role ?? null,
+        }
+      }),
+    }
+  },
+)

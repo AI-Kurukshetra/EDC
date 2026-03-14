@@ -109,6 +109,14 @@ export const DOCUMENT_SIGNATURE_MEANINGS = [
 
 export type DocumentSignatureMeaning = (typeof DOCUMENT_SIGNATURE_MEANINGS)[number]
 
+export const STUDY_SIGNATURE_MEANINGS = [
+  'I approve this study for operational execution.',
+  'I confirm this study record is accurate and oversight-ready.',
+  'I acknowledge responsibility for the current study status.',
+] as const
+
+export type StudySignatureMeaning = (typeof STUDY_SIGNATURE_MEANINGS)[number]
+
 export const EXPORT_SIGNATURE_MEANINGS = [
   'I certify this export is being requested for authorized study use.',
   'I acknowledge responsibility for handling this export securely.',
@@ -431,6 +439,26 @@ export type StudyDetail = StudySummary & {
   openQueries: number
   enrolledSubjects: number
   completionRate: number
+}
+
+export type StudyOverviewSignature = {
+  id: string
+  signatureMeaning: StudySignatureMeaning
+  signedAt: string
+  createdAt: string
+  certificateHash: string
+  signedByName: string | null
+  signedByEmail: string | null
+  signedByRole: UserRole | null
+}
+
+export type StudyOverviewWorkspace = {
+  study: StudyDetail
+  canSignStudy: boolean
+  viewerName: string | null
+  viewerEmail: string | null
+  viewerRole: UserRole | null
+  signatures: StudyOverviewSignature[]
 }
 
 export type DashboardSnapshot = {

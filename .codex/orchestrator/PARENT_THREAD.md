@@ -140,6 +140,10 @@ Keep this file compact:
 - Study export functionality is now wired:
   - added a server action that requests signed export jobs through the `export-data` edge function
   - the export screen shows current study scope and export history, and can generate CSV / JSON / CDISC downloads
+- Study export requests now capture immutable electronic signatures:
+  - the export request action now requires password re-entry plus a certification meaning before invoking the export edge function
+  - successful export requests now insert `data_export` signature records and emit `signature.captured` audit events
+  - the study export workspace now shows signature state, latest signer, and latest certification details for each export job
 - End-of-phase verification is now complete:
   - `pnpm typecheck`
   - `pnpm lint`
@@ -219,6 +223,10 @@ Keep this file compact:
   - each document card now shows whether it is the current or superseded version, the family size, latest version number, and inline version history badges
   - the `Next version` flow now preserves document-family lineage by keeping the existing name/category stable server-side instead of allowing accidental family splits during versioning
   - the study-document signature certificate hash no longer derives from the re-entered password; password is used only for re-authentication
+- Phase 2 study-level sign-off is now live on the overview page:
+  - `/studies/[studyId]` now renders a real overview workspace with readiness context plus a study-level electronic signature panel
+  - sponsor, monitor, data-manager, and super-admin users can now sign the immutable `study` record after password re-authentication
+  - study-level signatures show recent signer history and certificate hashes on the overview page and automatically flow into study audit and admin signature oversight
 - Gate/build verification was rerun on March 14, 2026 after the auth recovery slice:
   - `pnpm typecheck`
   - `pnpm lint`
@@ -238,7 +246,7 @@ Keep this file compact:
 ## Exact Next Steps
 
 1. Continue Phase 2 from the admin workspace:
-   - continue from the new governance, site-access, auth-recovery, study-oversight, document-register, signature-oversight, study-document, study-signature, document-lifecycle, and document-lineage controls and choose the next bounded Phase 2 feature, such as broader signature workflows on other record types or richer document operations beyond metadata/versioning
+   - continue from the new governance, site-access, auth-recovery, study-oversight, document-register, signature-oversight, study-document, export-signature, study-signature, document-lifecycle, document-lineage, and study-level sign-off controls and choose the next bounded Phase 2 feature, such as broader signature workflows on other record types or richer document operations beyond metadata/versioning
 2. Regenerate `types/database.types.ts` from the live schema when convenient.
 3. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
 4. Decide whether to keep or replace the `postbuild` server-chunk workaround after investigating the underlying Next.js runtime path mismatch.
