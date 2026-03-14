@@ -1,5 +1,6 @@
 .DS_Store
 .next
+artifacts
 coverage
 node_modules
 playwright-report
@@ -8,4 +9,3 @@ test-results
 .env.local
 .env.production
 .env.development
-
