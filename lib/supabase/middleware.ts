@@ -59,7 +59,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  const isAdminRoute = pathname === ADMIN_ROUTE_PREFIX || pathname.startsWith(`${ADMIN_ROUTE_PREFIX}/`)
+  const isAdminRoute =
+    pathname === ADMIN_ROUTE_PREFIX || pathname.startsWith(`${ADMIN_ROUTE_PREFIX}/`)
   const isStudyCreateRoute = pathname === STUDY_CREATE_ROUTE
 
   if (user && (isAdminRoute || isStudyCreateRoute)) {

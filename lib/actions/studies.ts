@@ -21,7 +21,15 @@ const CreatedSiteSchema = z.object({
 })
 
 const StudyCreatorProfileSchema = z.object({
-  role: z.enum(['sponsor', 'data_manager', 'super_admin', 'investigator', 'coordinator', 'monitor', 'read_only']),
+  role: z.enum([
+    'sponsor',
+    'data_manager',
+    'super_admin',
+    'investigator',
+    'coordinator',
+    'monitor',
+    'read_only',
+  ]),
   is_active: z.boolean(),
 })
 

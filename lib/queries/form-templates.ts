@@ -35,10 +35,7 @@ function mapFormTemplate(row: z.infer<typeof FormTemplateRowSchema>): StudyFormT
   }
 }
 
-function toSafeFormTemplate(
-  row: unknown,
-  index: number,
-): StudyFormTemplate | null {
+function toSafeFormTemplate(row: unknown, index: number): StudyFormTemplate | null {
   const parsedRow = FormTemplateRowSchema.safeParse(row)
 
   if (!parsedRow.success) {

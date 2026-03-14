@@ -71,9 +71,7 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
     const matchesCategory = categoryFilter === 'all' || document.category === categoryFilter
     const matchesSignature =
       signatureFilter === 'all' ||
-      (signatureFilter === 'signed'
-        ? document.signatureCount > 0
-        : document.signatureCount === 0)
+      (signatureFilter === 'signed' ? document.signatureCount > 0 : document.signatureCount === 0)
 
     return matchesSearch && matchesCategory && matchesSignature
   })
@@ -81,8 +79,9 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
     Number(searchValue.trim().length > 0) +
     Number(categoryFilter !== 'all') +
     Number(signatureFilter !== 'all')
-  const signedDocumentCount = workspace.documents.filter((document) => document.signatureCount > 0)
-    .length
+  const signedDocumentCount = workspace.documents.filter(
+    (document) => document.signatureCount > 0,
+  ).length
   const totalSignatureCount = workspace.documents.reduce(
     (count, document) => count + document.signatureCount,
     0,
@@ -333,8 +332,8 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
                 Latest signature
               </p>
               <p className="mt-2 text-lg font-semibold text-[color:var(--color-gray-900)]">
-                {workspace.documents.find((document) => document.latestSignedAt)?.latestSignedByName ??
-                  'No signatures yet'}
+                {workspace.documents.find((document) => document.latestSignedAt)
+                  ?.latestSignedByName ?? 'No signatures yet'}
               </p>
               <p className="mt-2 text-sm text-[color:var(--color-gray-600)]">
                 {formatDateTime(

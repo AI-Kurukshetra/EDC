@@ -47,11 +47,7 @@ export async function registerStudyDocument(
 
   const supabase = await getServerSupabase()
   const [viewerResult, studyResult] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('id, full_name, role, is_active')
-      .eq('id', user.id)
-      .single(),
+    supabase.from('profiles').select('id, full_name, role, is_active').eq('id', user.id).single(),
     supabase.from('studies').select('id, title, sponsor_id').eq('id', parsed.data.studyId).single(),
   ])
 
@@ -82,8 +78,7 @@ export async function registerStudyDocument(
   if (!canManageDocuments) {
     return {
       success: false,
-      error:
-        'Only the study sponsor, data managers, or super admins can register study documents.',
+      error: 'Only the study sponsor, data managers, or super admins can register study documents.',
     }
   }
 

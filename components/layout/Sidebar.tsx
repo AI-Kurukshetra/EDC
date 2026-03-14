@@ -26,7 +26,11 @@ type SidebarProps = {
 }
 
 /** Renders the primary dashboard navigation with mobile overlay behavior. */
-export function Sidebar({ canAccessAdmin = false, canCreateStudy = false, className }: SidebarProps) {
+export function Sidebar({
+  canAccessAdmin = false,
+  canCreateStudy = false,
+  className,
+}: SidebarProps) {
   const pathname = usePathname()
   const sidebarOpen = useUiStore((state) => state.sidebarOpen)
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen)

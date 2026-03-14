@@ -15,8 +15,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   const canAccessAdmin = profile?.role === 'super_admin' && profile.isActive
   const canCreateStudy = Boolean(
     profile &&
-      profile.isActive &&
-      ['sponsor', 'data_manager', 'super_admin'].includes(profile.role),
+    profile.isActive &&
+    ['sponsor', 'data_manager', 'super_admin'].includes(profile.role),
   )
 
   return (

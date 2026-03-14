@@ -570,8 +570,7 @@ function AdminDocumentRegister({ documents, studies }: AdminDocumentRegisterProp
 
     return matchesSearch && matchesCategory
   })
-  const activeFilterCount =
-    Number(searchValue.trim().length > 0) + Number(categoryFilter !== 'all')
+  const activeFilterCount = Number(searchValue.trim().length > 0) + Number(categoryFilter !== 'all')
   const selectedStudy = studies.find((study) => study.id === studyId) ?? null
 
   function resetComposer() {
@@ -849,8 +848,9 @@ function AdminSignatureRegister({ signatures }: AdminSignatureRegisterProps) {
   const [entityTypeFilter, setEntityTypeFilter] = useState('all')
   const deferredSearchValue = useDeferredValue(searchValue)
   const normalizedSearchValue = deferredSearchValue.trim().toLowerCase()
-  const entityTypeOptions = Array.from(new Set(signatures.map((signature) => signature.entityType)))
-    .sort()
+  const entityTypeOptions = Array.from(
+    new Set(signatures.map((signature) => signature.entityType)),
+  ).sort()
   const filteredSignatures = signatures.filter((signature) => {
     const matchesSearch =
       normalizedSearchValue.length === 0 ||
@@ -1021,7 +1021,7 @@ function AdminSignatureRegister({ signatures }: AdminSignatureRegisterProps) {
                     <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
                       Certificate hash
                     </p>
-                    <p className="mt-1 break-all font-[family-name:var(--font-mono)] text-xs text-[color:var(--color-gray-700)]">
+                    <p className="mt-1 font-[family-name:var(--font-mono)] text-xs break-all text-[color:var(--color-gray-700)]">
                       {signature.certificateHash}
                     </p>
                   </div>

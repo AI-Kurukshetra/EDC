@@ -7,8 +7,8 @@ import { z } from 'zod'
 import { invokeEdgeFunction } from '@/lib/supabase/functions'
 import { getAuthenticatedUser, getServerSupabase } from '@/lib/supabase/server'
 import { sha256 } from '@/lib/utils/crypto'
-import { SignStudyDocumentSchema } from '@/lib/validations/study-signature.schema'
 import { PostgresUuidSchema } from '@/lib/validations/identifiers'
+import { SignStudyDocumentSchema } from '@/lib/validations/study-signature.schema'
 import { USER_ROLES } from '@/types'
 
 import type { ActionResult } from '@/types/actions'
@@ -100,7 +100,7 @@ export async function signStudyDocument(
     return { success: false, error: 'Password verification failed. Signature not captured.' }
   }
 
-  if (reauthResult.data.user?.id !== viewer.data.id) {
+  if (reauthResult.data.user.id !== viewer.data.id) {
     return { success: false, error: 'Unable to verify your signing identity.' }
   }
 

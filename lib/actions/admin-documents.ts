@@ -53,11 +53,7 @@ export async function registerAdminStudyDocument(
 
   const supabase = await getServerSupabase()
   const [viewerResult, studyResult] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('id, full_name, role, is_active')
-      .eq('id', user.id)
-      .single(),
+    supabase.from('profiles').select('id, full_name, role, is_active').eq('id', user.id).single(),
     supabase
       .from('studies')
       .select('id, title, protocol_number, sponsor_id')

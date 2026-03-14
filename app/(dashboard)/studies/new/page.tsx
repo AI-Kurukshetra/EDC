@@ -12,7 +12,9 @@ export default async function NewStudyPage(_props: NewStudyPageProps) {
   const profile = await getCurrentSessionProfile()
   const canCreateStudy =
     profile?.isActive === true &&
-    (profile.role === 'sponsor' || profile.role === 'data_manager' || profile.role === 'super_admin')
+    (profile.role === 'sponsor' ||
+      profile.role === 'data_manager' ||
+      profile.role === 'super_admin')
 
   if (!canCreateStudy) {
     redirect('/studies')

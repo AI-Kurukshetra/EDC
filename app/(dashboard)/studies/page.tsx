@@ -19,7 +19,9 @@ export default async function StudiesPage({ searchParams }: StudiesPageProps) {
   const profile = await getCurrentSessionProfile()
   const canCreateStudy =
     profile?.isActive === true &&
-    (profile.role === 'sponsor' || profile.role === 'data_manager' || profile.role === 'super_admin')
+    (profile.role === 'sponsor' ||
+      profile.role === 'data_manager' ||
+      profile.role === 'super_admin')
   const studies = await getStudies({
     search: params.search,
     phase:
