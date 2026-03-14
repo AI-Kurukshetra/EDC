@@ -1,0 +1,78 @@
+@import 'tailwindcss';
+
+:root {
+  --font-display:
+    'Avenir Next', 'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', 'Liberation Sans',
+    sans-serif;
+  --font-body:
+    'Source Sans 3', 'Segoe UI', 'Helvetica Neue', 'Avenir Next', 'Liberation Sans',
+    sans-serif;
+  --font-mono:
+    'SFMono-Regular', 'SF Mono', 'Cascadia Mono', 'JetBrains Mono', 'Consolas',
+    monospace;
+  --color-navy-900: #0d2137;
+  --color-navy-800: #1f4e79;
+  --color-navy-700: #2e75b6;
+  --color-navy-600: #4a90c4;
+  --color-navy-100: #d6e4f0;
+  --color-navy-50: #eef5fb;
+  --color-gray-950: #0a0f14;
+  --color-gray-900: #111827;
+  --color-gray-700: #2f3c4f;
+  --color-gray-600: #4b5563;
+  --color-gray-400: #9ca3af;
+  --color-gray-200: #e5e7eb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-50: #f9fafb;
+  --color-success-700: #15803d;
+  --color-success-100: #dcfce7;
+  --color-success-50: #f0fdf4;
+  --color-warning-700: #b45309;
+  --color-warning-100: #fef3c7;
+  --color-warning-50: #fffbeb;
+  --color-danger-700: #b91c1c;
+  --color-danger-500: #ef4444;
+  --color-danger-100: #fee2e2;
+  --color-danger-50: #fff5f5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(214, 228, 240, 0.6), transparent 34%),
+    linear-gradient(180deg, rgba(238, 245, 251, 0.5), rgba(249, 250, 251, 1));
+  color: var(--color-gray-900);
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(31, 78, 121, 0.18);
+}
+
+.grid-surface {
+  background-image:
+    linear-gradient(rgba(214, 228, 240, 0.32) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(214, 228, 240, 0.32) 1px, transparent 1px);
+  background-position: center;
+  background-size: 28px 28px;
+}

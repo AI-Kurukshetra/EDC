@@ -1,0 +1,601 @@
+================================================================================
+  CLINICAL DATA HUB — MASTER AGENT DEVELOPMENT PROMPT
+  Stack: Next.js (TypeScript, latest stable) + Supabase
+================================================================================
+
+You are a senior full-stack engineer. Your task is to build the Clinical Data
+Hub — a next-generation Electronic Data Capture (EDC) platform for clinical
+trials. This is a phased product. Build Phase 1 (MVP) completely and
+production-ready first, then proceed to Phase 2 only after Phase 1 is fully
+working. Do not scaffold placeholders — every feature you implement must be
+fully functional.
+
+────────────────────────────────────────────────────────────────────────────────
+TECH STACK (STRICT — DO NOT DEVIATE)
+────────────────────────────────────────────────────────────────────────────────
+
+Frontend:
+  - Next.js (latest stable) with TypeScript
+  - App Router (not Pages Router)
+  - Tailwind CSS for styling
+  - shadcn/ui for UI components
+  - React Hook Form + Zod for form validation
+  - TanStack Query (React Query) for server state
+  - Zustand for client-side state management
+  - Recharts for dashboards and charts
+  - date-fns for date handling
+
+Backend / Database:
+  - Supabase (PostgreSQL) as the sole backend
+  - Supabase Auth for authentication (email/password + magic link)
+  - Supabase Row Level Security (RLS) for all data access control
+  - Supabase Realtime for live dashboard updates
+  - Supabase Storage for document uploads
+  - Supabase Edge Functions (Deno) for server-side business logic
+    that cannot run on the client (e.g. audit log writes, randomization)
+
+Deployment:
+  - Vercel for Next.js hosting
+  - Environment variables via .env.local (provide .env.example)
+
+────────────────────────────────────────────────────────────────────────────────
+PROJECT STRUCTURE
+────────────────────────────────────────────────────────────────────────────────
+
+clinical-data-hub/
+├── app/                          # Next.js App Router
+│   ├── (auth)/
+│   │   ├── login/page.tsx
+│   │   └── register/page.tsx
+│   ├── (dashboard)/
+│   │   ├── layout.tsx            # Sidebar + top nav shell
+│   │   ├── page.tsx              # Global dashboard
+│   │   ├── studies/
+│   │   │   ├── page.tsx          # Studies list
+│   │   │   ├── new/page.tsx      # Create study
+│   │   │   └── [studyId]/
+│   │   │       ├── page.tsx      # Study overview
+│   │   │       ├── forms/        # CRF builder
+│   │   │       ├── subjects/     # Subject management
+│   │   │       ├── data/         # Data entry & review
+│   │   │       ├── queries/      # Query management
+│   │   │       ├── sites/        # Site management
+│   │   │       ├── users/        # User & role management
+│   │   │       ├── audit/        # Audit trail viewer
+│   │   │       └── export/       # Data export
+│   │   └── admin/                # Platform admin panel
+├── components/
+│   ├── ui/                       # shadcn/ui base components
+│   ├── forms/                    # CRF form renderer components
+│   ├── dashboard/                # Dashboard widgets
+│   ├── subjects/                 # Subject management components
+│   ├── queries/                  # Query thread components
+│   └── shared/                   # Reusable layout/nav components
+├── lib/
+│   ├── supabase/
+│   │   ├── client.ts             # Browser Supabase client
+│   │   ├── server.ts             # Server-side Supabase client
+│   │   └── middleware.ts         # Auth middleware
+│   ├── validations/              # Zod schemas
+│   ├── hooks/                    # Custom React hooks
+│   └── utils/                    # Shared utilities
+├── supabase/
+│   ├── migrations/               # All SQL migrations (numbered)
+│   ├── functions/                # Edge Functions
+│   │   ├── audit-log/            # Audit trail writer
+│   │   ├── generate-queries/     # Auto query generation
+│   │   └── export-data/          # CDISC export processor
+│   └── seed.sql                  # Dev seed data
+├── types/
+│   └── database.types.ts         # Auto-generated Supabase types
+├── middleware.ts                 # Next.js middleware (auth guard)
+├── .env.example
+└── README.md
+
+────────────────────────────────────────────────────────────────────────────────
+SUPABASE DATABASE SCHEMA
+────────────────────────────────────────────────────────────────────────────────
+
+Create the following tables with full RLS policies. All tables must have:
+  - id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+  - created_at TIMESTAMPTZ DEFAULT now()
+  - updated_at TIMESTAMPTZ DEFAULT now()
+
+--- USERS & AUTH ---
+
+profiles (extends auth.users)
+  - id UUID REFERENCES auth.users(id) ON DELETE CASCADE
+  - full_name TEXT NOT NULL
+  - email TEXT NOT NULL UNIQUE
+  - role TEXT NOT NULL CHECK (role IN ('super_admin','sponsor','investigator',
+    'coordinator','monitor','data_manager','read_only'))
+  - is_active BOOLEAN DEFAULT true
+
+--- STUDIES ---
+
+studies
+  - title TEXT NOT NULL
+  - protocol_number TEXT UNIQUE NOT NULL
+  - phase TEXT CHECK (phase IN ('Phase I','Phase II','Phase III','Phase IV'))
+  - status TEXT DEFAULT 'draft' CHECK (status IN
+    ('draft','active','on_hold','completed','terminated'))
+  - sponsor_id UUID REFERENCES profiles(id)
+  - description TEXT
+  - target_enrollment INT
+  - start_date DATE
+  - end_date DATE
+  - therapeutic_area TEXT
+
+--- SITES ---
+
+sites
+  - study_id UUID REFERENCES studies(id) ON DELETE CASCADE
+  - name TEXT NOT NULL
+  - site_code TEXT NOT NULL
+  - principal_investigator_id UUID REFERENCES profiles(id)
+  - address TEXT
+  - country TEXT
+  - status TEXT DEFAULT 'pending' CHECK (status IN
+    ('pending','active','closed'))
+
+site_users (many-to-many: sites <> profiles)
+  - site_id UUID REFERENCES sites(id) ON DELETE CASCADE
+  - user_id UUID REFERENCES profiles(id) ON DELETE CASCADE
+  - role TEXT NOT NULL
+  - PRIMARY KEY (site_id, user_id)
+
+--- SUBJECTS ---
+
+subjects
+  - study_id UUID REFERENCES studies(id) ON DELETE CASCADE
+  - site_id UUID REFERENCES sites(id)
+  - subject_id TEXT NOT NULL             -- e.g. "001-001"
+  - status TEXT DEFAULT 'screened' CHECK (status IN
+    ('screened','enrolled','randomized','completed','withdrawn','screen_failed'))
+  - consent_date DATE
+  - enrollment_date DATE
+  - withdrawal_date DATE
+  - withdrawal_reason TEXT
+  - UNIQUE (study_id, subject_id)
+
+--- FORMS (CRF BUILDER) ---
+
+form_templates
+  - study_id UUID REFERENCES studies(id) ON DELETE CASCADE
+  - name TEXT NOT NULL                   -- e.g. "Demographics", "Adverse Events"
+  - form_type TEXT CHECK (form_type IN
+    ('screening','enrollment','visit','adverse_event','completion','other'))
+  - version INT DEFAULT 1
+  - is_published BOOLEAN DEFAULT false
+  - schema JSONB NOT NULL               -- field definitions (see below)
+  - visit_schedule JSONB               -- which visits this form applies to
+
+-- schema JSONB structure:
+-- {
+--   "fields": [
+--     {
+--       "id": "field_uuid",
+--       "label": "Date of Birth",
+--       "type": "date|text|number|select|multiselect|radio|checkbox|textarea",
+--       "required": true,
+--       "validation": { "min": null, "max": null, "pattern": null },
+--       "options": ["Yes","No"],     -- for select/radio types
+--       "condition": {               -- show/hide logic
+--         "field_id": "...",
+--         "operator": "equals|not_equals|greater_than|less_than",
+--         "value": "..."
+--       }
+--     }
+--   ]
+-- }
+
+--- DATA ENTRIES ---
+
+data_entries
+  - subject_id UUID REFERENCES subjects(id) ON DELETE CASCADE
+  - form_template_id UUID REFERENCES form_templates(id)
+  - visit_number INT
+  - visit_date DATE
+  - data JSONB NOT NULL              -- { "field_id": value, ... }
+  - status TEXT DEFAULT 'draft' CHECK (status IN
+    ('draft','submitted','locked','sdv_required','sdv_complete'))
+  - submitted_by UUID REFERENCES profiles(id)
+  - submitted_at TIMESTAMPTZ
+  - locked_by UUID REFERENCES profiles(id)
+  - locked_at TIMESTAMPTZ
+
+--- QUERIES ---
+
+queries
+  - data_entry_id UUID REFERENCES data_entries(id) ON DELETE CASCADE
+  - field_id TEXT NOT NULL           -- references field within the form
+  - subject_id UUID REFERENCES subjects(id)
+  - query_text TEXT NOT NULL
+  - status TEXT DEFAULT 'open' CHECK (status IN
+    ('open','answered','closed','cancelled'))
+  - raised_by UUID REFERENCES profiles(id)
+  - assigned_to UUID REFERENCES profiles(id)
+  - priority TEXT DEFAULT 'normal' CHECK (priority IN ('low','normal','high'))
+
+query_responses
+  - query_id UUID REFERENCES queries(id) ON DELETE CASCADE
+  - response_text TEXT NOT NULL
+  - responded_by UUID REFERENCES profiles(id)
+  - action_taken TEXT
+
+--- AUDIT LOG ---
+
+audit_logs
+  - study_id UUID REFERENCES studies(id)
+  - user_id UUID REFERENCES profiles(id)
+  - action TEXT NOT NULL            -- e.g. 'DATA_ENTRY_SUBMITTED'
+  - entity_type TEXT NOT NULL       -- e.g. 'data_entry', 'subject', 'query'
+  - entity_id UUID
+  - old_value JSONB
+  - new_value JSONB
+  - ip_address TEXT
+  - user_agent TEXT
+  -- NOTE: NO UPDATE or DELETE permissions on this table ever. Insert only.
+
+--- ELECTRONIC SIGNATURES ---
+
+signatures
+  - study_id UUID REFERENCES studies(id)
+  - entity_type TEXT NOT NULL
+  - entity_id UUID NOT NULL
+  - signed_by UUID REFERENCES profiles(id)
+  - signature_meaning TEXT NOT NULL  -- e.g. "I certify this data is accurate"
+  - signed_at TIMESTAMPTZ DEFAULT now()
+  - certificate_hash TEXT NOT NULL   -- SHA-256 of (entity_id + user_id + timestamp)
+
+--- DOCUMENTS ---
+
+study_documents
+  - study_id UUID REFERENCES studies(id) ON DELETE CASCADE
+  - name TEXT NOT NULL
+  - file_path TEXT NOT NULL          -- Supabase Storage path
+  - file_size INT
+  - mime_type TEXT
+  - version INT DEFAULT 1
+  - uploaded_by UUID REFERENCES profiles(id)
+  - category TEXT CHECK (category IN
+    ('protocol','icf','investigator_brochure','sap','other'))
+
+────────────────────────────────────────────────────────────────────────────────
+ROW LEVEL SECURITY (RLS) RULES
+────────────────────────────────────────────────────────────────────────────────
+
+Apply these RLS rules to every table:
+
+1. profiles        — Users can read all profiles; update only their own
+2. studies         — Sponsor sees own studies; investigator/coordinator/monitor
+                     see studies they are assigned to via site_users
+3. sites           — Visible to users assigned to that site or study sponsor
+4. subjects        — Visible to users at the subject's site + sponsor + DM
+5. form_templates  — Readable by all study members; writable by DM/sponsor only
+6. data_entries    — Coordinators at the site can insert/update their subjects;
+                     monitors and DM can read all; no one can delete
+7. queries         — Visible to all study members; coordinators can respond;
+                     DMs can open/close
+8. audit_logs      — INSERT only via Edge Function service_role; read by
+                     DM, sponsor, monitor; NO UPDATE or DELETE ever
+9. signatures      — INSERT only; read by all study members; never editable
+10. study_documents— Readable by all study members; uploadable by DM/sponsor
+
+────────────────────────────────────────────────────────────────────────────────
+PHASE 1 FEATURES — BUILD ALL OF THESE COMPLETELY
+────────────────────────────────────────────────────────────────────────────────
+
+--- FEATURE 1: AUTHENTICATION & USER MANAGEMENT ---
+
+- Supabase Auth email/password login with magic link option
+- On first login, user completes profile (name, role requested)
+- Super admin approves/assigns roles via admin panel
+- Session management via Supabase SSR (use @supabase/ssr package)
+- Middleware-based route protection (redirect unauthenticated users to /login)
+- Role-based UI — hide/show nav items and action buttons based on user role
+- User profile page with password change and profile update
+
+--- FEATURE 2: STUDY DESIGN & MANAGEMENT ---
+
+- Studies list page with status badges, search, and filter by phase/status
+- Create Study wizard (3 steps: Basic Info → Sites → Team Assignment)
+- Study detail page with tabbed navigation (Overview, Sites, Subjects, Forms,
+  Data, Queries, Audit, Export)
+- Study status lifecycle management (draft → active → completed/terminated)
+- Study cloning for creating new studies from existing templates
+- Study dashboard showing: enrollment progress bar, data completion %, open
+  queries count, recent activity feed (powered by Supabase Realtime)
+
+--- FEATURE 3: CRF FORM BUILDER ---
+
+- Drag-and-drop form builder using @dnd-kit/core
+- Supported field types: Text, Number, Date, Select (single), Multi-select,
+  Radio, Checkbox, Textarea, Section Header (non-data divider)
+- Per-field configuration: label, required flag, help text, validation rules
+  (min/max for numbers, date ranges, regex pattern for text)
+- Conditional logic: show/hide a field based on the value of another field
+- Form versioning: publishing a form creates a locked version; edits create v+1
+- Form preview mode: renders the form exactly as coordinators will see it
+- Form template library: save and reuse forms across studies
+- Visit schedule assignment: link forms to specific visit windows
+
+--- FEATURE 4: SUBJECT MANAGEMENT ---
+
+- Subject enrollment with auto-generated subject ID (site_code + sequential)
+- Subject status tracking through lifecycle stages
+- Consent date capture with mandatory signature before enrollment proceeds
+- Subject list with filterable status, site, and enrollment date columns
+- Subject detail page showing: demographics summary, visit timeline,
+  outstanding forms, open queries, and adverse events
+- Withdrawal workflow with reason capture and data lock on withdrawal
+
+--- FEATURE 5: DATA ENTRY (eCRF) ---
+
+- Data entry interface renders forms from the JSON schema dynamically
+- Real-time field validation (client-side) using Zod schemas generated
+  from the form's validation rules
+- Conditional fields show/hide instantly without page reload
+- Auto-save draft every 30 seconds via debounced Supabase upsert
+- Submit action triggers server-side validation via Edge Function before
+  writing final status
+- Data entry status workflow: draft → submitted → locked
+- Locked entries are fully read-only; any change requires a query/amendment
+- Missing data indicator: highlight unfilled required fields in the subject's
+  visit timeline
+- Data entry history: show previous values with timestamps (from audit log)
+
+--- FEATURE 6: QUERY MANAGEMENT ---
+
+- Monitors and data managers can raise a query on any submitted data field
+- Query appears as a flag icon on the affected field in data entry view
+- Query thread: original query text + all responses in chronological order
+- Query assignment to specific site coordinator
+- Status workflow: open → answered → closed (or cancelled)
+- Query list view: filterable by status, site, subject, form, and priority
+- Auto-query generation Edge Function: runs after data submission and raises
+  queries for values outside validation ranges defined on the form field
+- Query resolution requires a mandatory response text before closing
+- Email notification (via Supabase Edge Function + Resend API) when a query
+  is raised or responded to
+
+--- FEATURE 7: ELECTRONIC SIGNATURES (21 CFR PART 11) ---
+
+- Signature modal: displays meaning text, requires password re-entry to sign
+- Certificate generation: SHA-256 hash of (entity_id + user_id + ISO timestamp)
+  stored immutably in signatures table
+- Signature required for: data lock, study lock, protocol amendments
+- Signature audit: every signature visible in the audit trail with full details
+- Signed records display a verified signature badge with signer name + timestamp
+
+--- FEATURE 8: AUDIT TRAIL ---
+
+- Every create, update, submit, lock, signature, login, and export action is
+  logged to audit_logs via the Edge Function (using service_role key)
+- Audit log viewer: searchable, filterable table with columns:
+  Timestamp | User | Action | Entity Type | Entity ID | Changes
+- Changes column shows a before/after diff for data updates
+- Audit trail is read-only for all users including super admin
+- Export audit trail as CSV with date range filter
+
+--- FEATURE 9: MULTI-SITE MANAGEMENT ---
+
+- Site list within a study: name, code, PI name, status, enrollment count
+- Add/remove sites from a study; configure site-specific settings
+- User assignment to sites with site-specific roles
+- Per-site enrollment and data completion metrics on the study dashboard
+- Site activation workflow (pending → active → closed)
+
+--- FEATURE 10: REAL-TIME DASHBOARD ---
+
+Study-level dashboard must show (with live Supabase Realtime updates):
+  - Total enrolled vs target (progress bar + %)
+  - Enrollment by site (horizontal bar chart via Recharts)
+  - Data completion rate by form (donut chart)
+  - Open queries by status (stacked bar chart)
+  - Recent activity feed (last 20 audit log entries)
+  - Upcoming visit windows (subjects with visits due in next 7 days)
+
+Global dashboard (across all studies the user has access to):
+  - Summary cards: active studies, total subjects, open queries, pending exports
+  - My tasks: open queries assigned to me, pending data entries
+
+--- FEATURE 11: DATA EXPORT ---
+
+- Export wizard: select study, date range, sites, forms, and output format
+- Supported formats: CSV (one file per form), JSON (full study dump)
+- CDISC SDTM-like export: structured output with domain files (DM, AE, CM)
+  — note: true CDISC validation is Phase 2; this produces the structure
+- Export generates a background job (Edge Function), user gets download link
+  via email when ready
+- Export history log with filename, format, date, and user
+- All exports are logged in audit_logs
+
+--- FEATURE 12: NOTIFICATIONS ---
+
+- In-app notification bell with unread count badge
+- Notification types: new query raised, query responded to, subject enrolled,
+  data entry submitted, export ready
+- Notifications stored in a notifications table in Supabase
+- Mark as read individually or "mark all as read"
+- Email notifications for high-priority events via Edge Function + Resend
+
+────────────────────────────────────────────────────────────────────────────────
+UI / UX DESIGN REQUIREMENTS
+────────────────────────────────────────────────────────────────────────────────
+
+- Design language: Clean, clinical, professional. Inspired by Linear and
+  Vercel dashboard aesthetics. NOT a generic admin template.
+- Color palette:
+    Primary:    #1F4E79  (deep navy blue)
+    Secondary:  #2E75B6  (medium blue)
+    Accent:     #D6E4F0  (light blue tint for backgrounds)
+    Success:    #16A34A
+    Warning:    #D97706
+    Danger:     #DC2626
+    Neutral:    #F8FAFC surface / #64748B secondary text
+- Typography: Inter font (Google Fonts)
+- Sidebar navigation: collapsible, study context-aware. Shows global nav when
+  no study is selected; shows study-specific nav within a study.
+- All data tables: must have column sorting, pagination (25 rows default),
+  and search/filter capability
+- All forms: inline validation with error messages below each field
+- Loading states: use skeleton loaders (not spinners) for initial data loads
+- Empty states: custom illustrated empty states with a clear CTA for each page
+- Responsive: fully functional on tablet (1024px+); mobile is read-only views
+- Toast notifications (react-hot-toast) for all user actions
+- Confirmation dialogs for all destructive actions (delete, withdraw, lock)
+
+────────────────────────────────────────────────────────────────────────────────
+EDGE FUNCTIONS TO BUILD
+────────────────────────────────────────────────────────────────────────────────
+
+supabase/functions/audit-log/index.ts
+  - Accepts: { user_id, action, entity_type, entity_id, old_value, new_value }
+  - Writes to audit_logs using service_role key (bypasses RLS)
+  - Called from Next.js server actions for every state-changing operation
+
+supabase/functions/generate-queries/index.ts
+  - Triggers after a data_entry is submitted
+  - Reads the form_template schema and validates each field value
+  - Automatically inserts a query for any value outside defined validation range
+  - Sends email notification to assigned coordinator via Resend
+
+supabase/functions/export-data/index.ts
+  - Accepts: { study_id, format, site_ids[], form_ids[], date_range }
+  - Queries and joins data across subjects, data_entries, form_templates
+  - Generates CSV or JSON output, uploads to Supabase Storage
+  - Returns a signed download URL valid for 24 hours
+  - Logs the export to audit_logs
+
+supabase/functions/send-notification/index.ts
+  - Accepts: { user_id, type, title, message, entity_id }
+  - Inserts to notifications table
+  - Sends email if the notification type warrants it (via Resend API)
+
+────────────────────────────────────────────────────────────────────────────────
+KEY IMPLEMENTATION PATTERNS
+────────────────────────────────────────────────────────────────────────────────
+
+1. SERVER COMPONENTS vs CLIENT COMPONENTS
+   - Use React Server Components (RSC) for all initial data fetching
+   - Use 'use client' only for interactive components (forms, charts, real-time)
+   - Fetch initial data in page.tsx using the server Supabase client
+   - Pass data as props to client components; they subscribe to Supabase
+     Realtime for live updates
+
+2. SERVER ACTIONS
+   - All data mutations (insert, update) must go through Next.js Server Actions
+   - Server actions call the audit-log Edge Function before returning
+   - Validate with Zod on both client (for UX) and server (for security)
+
+3. SUPABASE TYPE SAFETY
+   - Generate types: npx supabase gen types typescript --local > types/database.types.ts
+   - Use generated Database type everywhere; no 'any' types
+   - Create typed helpers in lib/supabase/ for common query patterns
+
+4. ERROR HANDLING
+   - All Server Actions return: { data: T | null, error: string | null }
+   - Client components handle error state with toast notifications
+   - Add error boundaries at the route segment level
+
+5. DYNAMIC CRF RENDERING
+   - FormRenderer component accepts a form_template.schema JSONB
+   - Renders each field using a field type switch statement
+   - Conditional logic evaluated via a pure function on every field value change
+   - Validation schema built dynamically from field definitions using Zod
+
+────────────────────────────────────────────────────────────────────────────────
+DELIVERABLES EXPECTED FROM YOU
+────────────────────────────────────────────────────────────────────────────────
+
+1. Complete Next.js project scaffolded with the directory structure above
+2. All Supabase SQL migration files (numbered 001_, 002_, etc.)
+3. All RLS policies as SQL within migration files
+4. All 4 Edge Functions fully implemented
+5. All 12 Phase 1 features fully implemented (not scaffolded — fully working)
+6. TypeScript types generated and used throughout (zero 'any' types)
+7. .env.example with all required environment variable names
+8. README.md with: project overview, local setup steps, Supabase setup steps,
+   seed data instructions, and deployment guide
+9. seed.sql with: 1 study, 2 sites, 5 test users (one per key role),
+   3 subjects, 2 form templates, and sample data entries
+
+────────────────────────────────────────────────────────────────────────────────
+BUILD ORDER (FOLLOW THIS SEQUENCE)
+────────────────────────────────────────────────────────────────────────────────
+
+Step 1:  Supabase schema — all migrations + RLS policies
+Step 2:  Next.js project setup — dependencies, folder structure, Tailwind,
+         shadcn/ui, Supabase client configuration, middleware
+Step 3:  Auth flows — login, register, profile completion, route protection
+Step 4:  Layout shell — sidebar, top nav, breadcrumbs, responsive behavior
+Step 5:  Study management — list, create wizard, detail tabs
+Step 6:  Site & user management
+Step 7:  Subject management — enrollment, status, consent
+Step 8:  CRF Form Builder — drag-and-drop, field types, validation, preview
+Step 9:  Data Entry (eCRF) — dynamic renderer, auto-save, submission
+Step 10: Query Management — raise, respond, close, auto-query Edge Function
+Step 11: Audit Trail — viewer, export
+Step 12: Electronic Signatures — modal, hash generation, audit integration
+Step 13: Dashboard — charts, real-time updates, global + study views
+Step 14: Data Export — wizard, Edge Function, download
+Step 15: Notifications — in-app bell, email via Edge Function
+Step 16: Edge Functions — audit-log, generate-queries, export-data,
+         send-notification
+Step 17: Seed data + README
+
+────────────────────────────────────────────────────────────────────────────────
+REQUIRED DEPENDENCIES (package.json)
+────────────────────────────────────────────────────────────────────────────────
+
+{
+  "dependencies": {
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "typescript": "latest",
+    "@supabase/supabase-js": "latest",
+    "@supabase/ssr": "latest",
+    "tailwindcss": "latest",
+    "@tailwindcss/forms": "latest",
+    "shadcn-ui": "latest",
+    "react-hook-form": "latest",
+    "@hookform/resolvers": "latest",
+    "zod": "latest",
+    "@tanstack/react-query": "latest",
+    "zustand": "latest",
+    "recharts": "latest",
+    "@dnd-kit/core": "latest",
+    "@dnd-kit/sortable": "latest",
+    "@dnd-kit/utilities": "latest",
+    "date-fns": "latest",
+    "react-hot-toast": "latest",
+    "lucide-react": "latest",
+    "clsx": "latest",
+    "tailwind-merge": "latest",
+    "crypto": "latest"
+  }
+}
+
+────────────────────────────────────────────────────────────────────────────────
+CONSTRAINTS & NON-NEGOTIABLES
+────────────────────────────────────────────────────────────────────────────────
+
+- NEVER use the Pages Router. App Router only.
+- NEVER use 'any' TypeScript type. Use 'unknown' and narrow it, or generate
+  proper types from Supabase.
+- NEVER call Supabase directly from client components for mutations.
+  All mutations go through Server Actions.
+- NEVER delete or update audit_log records. Insert only.
+- NEVER skip RLS. Every table must have RLS enabled with explicit policies.
+- NEVER store sensitive data in localStorage or client-side state.
+- NEVER expose Supabase service_role key to the browser. Edge Functions only.
+- ALL data entry submissions must go through server-side validation before
+  being written to the database.
+- ALL destructive actions (subject withdrawal, data lock, study termination)
+  require an electronic signature or confirmation dialog.
+
+================================================================================
+END OF PROMPT — BUILD PHASE 1 COMPLETELY BEFORE STARTING PHASE 2
+================================================================================

@@ -1,0 +1,186 @@
+import { cache } from 'react'
+
+import { z } from 'zod'
+
+import { getServerSupabase } from '@/lib/supabase/server'
+import { PostgresUuidSchema } from '@/lib/validations/identifiers'
+import { type StudyFilters, StudyFiltersSchema } from '@/lib/validations/study.schema'
+import type { StudyDetail, StudySummary } from '@/types'
+
+const StudySummaryRowSchema = z.object({
+  id: PostgresUuidSchema,
+  title: z.string(),
+  protocol_number: z.string(),
+  phase: z.enum(['Phase I', 'Phase II', 'Phase III', 'Phase IV']),
+  status: z.enum(['draft', 'active', 'on_hold', 'completed', 'terminated']),
+  sponsor_id: PostgresUuidSchema.nullable(),
+  target_enrollment: z.number().nullable(),
+  start_date: z.string().nullable(),
+  end_date: z.string().nullable(),
+  therapeutic_area: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+const SiteRowSchema = z.object({
+  id: PostgresUuidSchema,
+  name: z.string(),
+  site_code: z.string(),
+  country: z.string().nullable(),
+  status: z.enum(['pending', 'active', 'closed']),
+  principal_investigator_id: PostgresUuidSchema.nullable(),
+  created_at: z.string(),
+})
+
+const StudyDetailRowSchema = StudySummaryRowSchema.extend({
+  description: z.string().nullable(),
+})
+
+function getExactCount(count: number | null): number {
+  return count ?? 0
+}
+
+function mapStudySummary(row: z.infer<typeof StudySummaryRowSchema>): StudySummary {
+  return {
+    id: row.id,
+    title: row.title,
+    protocolNumber: row.protocol_number,
+    phase: row.phase,
+    status: row.status,
+    sponsorId: row.sponsor_id,
+    targetEnrollment: row.target_enrollment,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    therapeuticArea: row.therapeutic_area,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+export const getStudies = cache(async (filters?: StudyFilters): Promise<StudySummary[]> => {
+  const parsed = StudyFiltersSchema.safeParse(filters ?? {})
+
+  if (!parsed.success) {
+    throw new Error('Invalid study filters.')
+  }
+
+  const supabase = await getServerSupabase()
+  let query = supabase
+    .from('studies')
+    .select(
+      'id, title, protocol_number, phase, status, sponsor_id, target_enrollment, start_date, end_date, therapeutic_area, created_at, updated_at',
+    )
+    .order('created_at', { ascending: false })
+
+  if (parsed.data.search) {
+    query = query.or(
+      `title.ilike.%${parsed.data.search}%,protocol_number.ilike.%${parsed.data.search}%`,
+    )
+  }
+
+  if (parsed.data.phase) {
+    query = query.eq('phase', parsed.data.phase)
+  }
+
+  if (parsed.data.status) {
+    query = query.eq('status', parsed.data.status)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return StudySummaryRowSchema.array().parse(data).map(mapStudySummary)
+})
+
+export const getStudyDetail = cache(async (studyId: string): Promise<StudyDetail | null> => {
+  const supabase = await getServerSupabase()
+
+  const [studyResult, sitesResult, subjectRowsResult] = await Promise.all([
+    supabase
+      .from('studies')
+      .select(
+        'id, title, protocol_number, phase, status, sponsor_id, target_enrollment, start_date, end_date, therapeutic_area, created_at, updated_at, description',
+      )
+      .eq('id', studyId)
+      .single(),
+    supabase
+      .from('sites')
+      .select('id, name, site_code, country, status, principal_investigator_id, created_at')
+      .eq('study_id', studyId)
+      .order('created_at', { ascending: true }),
+    supabase.from('subjects').select('id, status').eq('study_id', studyId),
+  ])
+
+  if (studyResult.error && studyResult.error.code !== 'PGRST116') {
+    throw new Error(studyResult.error.message)
+  }
+
+  if (!studyResult.data) {
+    return null
+  }
+
+  if (sitesResult.error) {
+    throw new Error(sitesResult.error.message)
+  }
+
+  if (subjectRowsResult.error) {
+    throw new Error(subjectRowsResult.error.message)
+  }
+
+  const subjectIds = subjectRowsResult.data.map((subject) => String(subject.id))
+  const enrolledSubjects = subjectRowsResult.data.filter((subject) =>
+    ['enrolled', 'randomized', 'completed'].includes(String(subject.status)),
+  ).length
+
+  let openQueryCount = 0
+  let entryCount = 0
+  let completedCount = 0
+
+  if (subjectIds.length > 0) {
+    const [openQueryResult, entryResult, completedResult] = await Promise.all([
+      supabase
+        .from('queries')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'open')
+        .in('subject_id', subjectIds),
+      supabase
+        .from('data_entries')
+        .select('id', { count: 'exact', head: true })
+        .in('subject_id', subjectIds),
+      supabase
+        .from('data_entries')
+        .select('id', { count: 'exact', head: true })
+        .in('subject_id', subjectIds)
+        .in('status', ['submitted', 'locked', 'sdv_complete']),
+    ])
+
+    openQueryCount = getExactCount(openQueryResult.count)
+    entryCount = getExactCount(entryResult.count)
+    completedCount = getExactCount(completedResult.count)
+  }
+
+  const parsedStudy = StudyDetailRowSchema.parse(studyResult.data)
+  const parsedSites = SiteRowSchema.array().parse(sitesResult.data)
+  const totalEntries = entryCount
+  const completedEntries = completedCount
+
+  return {
+    ...mapStudySummary(parsedStudy),
+    description: parsedStudy.description,
+    sites: parsedSites.map((site) => ({
+      id: site.id,
+      name: site.name,
+      siteCode: site.site_code,
+      country: site.country,
+      status: site.status,
+      principalInvestigatorId: site.principal_investigator_id,
+      createdAt: site.created_at,
+    })),
+    openQueries: openQueryCount,
+    enrolledSubjects,
+    completionRate: totalEntries === 0 ? 0 : (completedEntries / totalEntries) * 100,
+  }
+})
