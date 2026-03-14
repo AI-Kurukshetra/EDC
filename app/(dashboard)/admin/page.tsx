@@ -1,13 +1,11 @@
-import { EmptyState } from '@/components/data-display/EmptyState'
+import { AdminWorkspaceView } from '@/components/admin/admin-workspace'
+import { getAdminWorkspace } from '@/lib/queries/admin'
 
 type AdminPageProps = Record<string, never>
 
-/** Reserves the platform administration surface for future governance workflows. */
-export default function AdminPage(_props: AdminPageProps) {
-  return (
-    <EmptyState
-      title="Admin panel scaffolded"
-      description="Super-admin approval workflows, role governance, and platform controls will be built here."
-    />
-  )
+/** Renders the initial Phase 2 platform administration surface for super admins. */
+export default async function AdminPage(_props: AdminPageProps) {
+  const workspace = await getAdminWorkspace()
+
+  return <AdminWorkspaceView workspace={workspace} />
 }

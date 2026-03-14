@@ -2,14 +2,16 @@
 
 ## Active Child Task
 
-- Run the deferred end-of-phase verification pass for the new Phase 1 study-operations surfaces and fix anything it exposes.
+- Continue Phase 2 from the new `/admin` workspace and choose the next bounded admin/governance feature.
 - Regenerate `types/database.types.ts` when a clean generation path is available.
 - Repair / backfill `supabase_migrations` before relying on CLI migration-history workflows again.
+- Decide whether to keep or replace the `postbuild` server-chunk workaround after root-causing the Next.js runtime-path issue.
 - Keep gates green after each forms / CRF change and keep an eye on the non-blocking Next.js multi-lockfile warning during production builds.
 
 ## Next Child Tasks
 
-- Decide whether Phase 1 needs any additional polish after the full verification pass.
+- Add stricter admin-only route enforcement if product policy requires it.
+- Decide whether the next Phase 2 slice is admin governance, user management, or another new workflow.
 - Refresh `PARENT_THREAD.md` at every handoff.
 
 ## Parked

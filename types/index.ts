@@ -368,3 +368,71 @@ export type DashboardSnapshot = {
     createdAt: string
   }[]
 }
+
+export type SessionProfileSummary = {
+  id: string
+  fullName: string
+  email: string
+  role: UserRole
+  isActive: boolean
+  createdAt: string
+  unreadNotificationCount: number
+}
+
+export type AccountSiteAssignment = {
+  id: string
+  siteId: string
+  siteName: string
+  siteCode: string
+  studyId: string
+  studyTitle: string
+  role: UserRole
+}
+
+export type AccountStudySummary = {
+  id: string
+  title: string
+  protocolNumber: string
+  status: StudyStatus
+}
+
+export type AccountWorkspace = {
+  profile: SessionProfileSummary
+  siteAssignments: AccountSiteAssignment[]
+  sponsoredStudies: AccountStudySummary[]
+}
+
+export type AdminRoleSummary = {
+  role: UserRole
+  count: number
+}
+
+export type AdminUserSummary = {
+  id: string
+  fullName: string
+  email: string
+  role: UserRole
+  isActive: boolean
+  createdAt: string
+  unreadNotificationCount: number
+  siteAssignmentCount: number
+  sponsoredStudyCount: number
+  assignedSites: string[]
+}
+
+export type AdminWorkspace =
+  | {
+      isAuthorized: false
+      viewer: SessionProfileSummary | null
+    }
+  | {
+      isAuthorized: true
+      viewer: SessionProfileSummary
+      totalUsers: number
+      activeUsers: number
+      totalStudies: number
+      totalSiteAssignments: number
+      totalUnreadNotifications: number
+      roleDistribution: AdminRoleSummary[]
+      users: AdminUserSummary[]
+    }

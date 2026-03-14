@@ -49,7 +49,7 @@ Keep this file compact:
 
 ## Active Objective
 
-- Finish the remaining Phase 1 study operations surface and then run one end-of-phase verification pass.
+- Phase 1 shell/account UX is now complete and Phase 2 has started with the first real admin operations surface.
 
 ## Current State
 
@@ -140,43 +140,56 @@ Keep this file compact:
 - Study export functionality is now wired:
   - added a server action that requests signed export jobs through the `export-data` edge function
   - the export screen shows current study scope and export history, and can generate CSV / JSON / CDISC downloads
-- This child pass intentionally skipped interim repo gates at the user's request in order to finish the remaining Phase 1 functionality first.
-
-## Current Blockers
-
-- End-of-phase verification has not been rerun after the new study-operations pass:
+- End-of-phase verification is now complete:
   - `pnpm typecheck`
   - `pnpm lint`
   - `pnpm test`
   - `pnpm format:check`
   - `pnpm build`
-  - production runtime restart / smoke check on the fresh build
+- Production runtime is serving the fresh build on `127.0.0.1:3001`:
+  - `/login` -> `200`
+  - `/register` -> `200`
+  - `/studies` -> `307` to login when signed out
+  - `/studies/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/data` -> `307` to login when signed out
+  - `/studies/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/queries` -> `307` to login when signed out
+  - `/studies/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/export` -> `307` to login when signed out
+- Added a workspace-specific runtime workaround:
+  - `scripts/fix-next-server-chunks.cjs`
+  - wired through `postbuild` in `package.json`
+  - copies `.next/server/chunks/*.js` into `.next/server/` so `next start` can resolve server chunks like `./463.js` in this environment
+- Phase 1 shell/account UX is now filled in:
+  - dashboard top nav shows the signed-in user's name, role, unread count, `Account`, and `Logout`
+  - `/account` now exists and shows the current profile, site assignments, and sponsored studies
+  - logout is wired through the existing server action in the live dashboard shell
+- Phase 2 has started with `/admin`:
+  - replaced the placeholder with a real platform-ops view for super admins
+  - the admin workspace shows role distribution, user inventory, study ownership counts, site-assignment counts, and unread notification load
+- Fresh verification after the account/admin work is green:
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - clean `pnpm build`
+  - production smoke checks:
+    - `/login` -> `200`
+    - `/account` -> `307` to login when signed out
+    - `/admin` -> `307` to login when signed out
+
+## Current Blockers
+
 - Remote migration history is not yet recorded in `supabase_migrations`, so future CLI-style migration reconciliation will need a repair step.
 - `types/database.types.ts` is still the temporary placeholder and should be regenerated from the now-live schema when a clean type-generation path is available.
 - In-thread Supabase MCP tools are still tied to older session bootstrap state, so fresh child processes or direct Management API calls remain the reliable remote-admin paths.
 - Next.js warns about multiple lockfiles because `/Users/apple/package-lock.json` exists above the repo alongside this workspace's `pnpm-lock.yaml`; build succeeds, but the warning remains until the root inference is cleaned up.
+- The current production-start fix depends on the `postbuild` chunk-copy workaround until the underlying Next.js server chunk-path mismatch is root-caused or eliminated.
+- `/admin` currently uses role-based rendering inside the page rather than middleware-level route enforcement; if stricter admin-only routing is desired, that policy still needs to be added.
 
 ## Exact Next Steps
 
-1. Run the deferred end-of-phase verification set:
-
-- `pnpm typecheck`
-- `pnpm lint`
-- `pnpm test`
-- `pnpm format:check`
-- `pnpm build`
-
-2. Restart the production server on `127.0.0.1:3001` from the new build and smoke-test the study routes, especially:
-
-- `/studies/[studyId]/data`
-- `/studies/[studyId]/subjects`
-- `/studies/[studyId]/queries`
-- `/studies/[studyId]/export`
-
-3. Fix any issues found in the end-of-phase verification pass.
-4. Regenerate `types/database.types.ts` from the live schema when convenient.
-5. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
-6. Decide whether to silence the Next.js multi-lockfile warning by cleaning the parent `package-lock.json` situation or restoring a safe `outputFileTracingRoot`.
+1. Continue Phase 2 from the new admin workspace:
+   - decide whether the next child task is admin governance workflows, stricter admin route protection, or actionable user-management controls
+2. Regenerate `types/database.types.ts` from the live schema when convenient.
+3. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
+4. Decide whether to keep or replace the `postbuild` server-chunk workaround after investigating the underlying Next.js runtime path mismatch.
+5. Decide whether to silence the Next.js multi-lockfile warning by cleaning the parent `package-lock.json` situation or restoring a safe `outputFileTracingRoot`.
 
 ## Supabase Status
 
@@ -192,6 +205,8 @@ Keep this file compact:
 - Export and auto-query edge functions are now wired into the study workflows from the app layer:
   - `generate-queries` is invoked after eCRF submission
   - `export-data` is invoked from the new study export action
+- Production verification on March 14, 2026 is green with the current workspace-specific postbuild chunk-copy workaround in place.
+- The signed-in dashboard shell now depends on live profile reads from `profiles` plus unread notification counts for the top-nav account state.
 - Remote seed credentials are verified with these demo logins:
   - `sponsor@clinicalhub.dev / Password123!`
   - `investigator@clinicalhub.dev / Password123!`
