@@ -2,14 +2,11 @@
 
 :root {
   --font-display:
-    'Avenir Next', 'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', 'Liberation Sans',
-    sans-serif;
+    'Avenir Next', 'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', 'Liberation Sans', sans-serif;
   --font-body:
-    'Source Sans 3', 'Segoe UI', 'Helvetica Neue', 'Avenir Next', 'Liberation Sans',
-    sans-serif;
+    'Source Sans 3', 'Segoe UI', 'Helvetica Neue', 'Avenir Next', 'Liberation Sans', sans-serif;
   --font-mono:
-    'SFMono-Regular', 'SF Mono', 'Cascadia Mono', 'JetBrains Mono', 'Consolas',
-    monospace;
+    'SFMono-Regular', 'SF Mono', 'Cascadia Mono', 'JetBrains Mono', 'Consolas', monospace;
   --color-navy-900: #0d2137;
   --color-navy-800: #1f4e79;
   --color-navy-700: #2e75b6;

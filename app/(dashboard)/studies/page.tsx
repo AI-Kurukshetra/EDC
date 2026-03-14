@@ -1,7 +1,8 @@
-import { StudiesFilters } from '@/app/(dashboard)/studies/_components/studies-filters'
 import { EmptyState } from '@/components/data-display/EmptyState'
 import { StudiesTable } from '@/components/data-display/StudiesTable'
 import { getStudies } from '@/lib/queries/studies'
+
+import { StudiesFilters } from './_components/studies-filters'
 
 type StudiesPageProps = {
   searchParams: Promise<{

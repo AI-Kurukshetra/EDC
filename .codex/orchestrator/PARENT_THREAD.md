@@ -107,24 +107,41 @@ Keep this file compact:
 - `/studies/[studyId]/forms` workspace polish resumed:
   - published templates now become read-only in the builder
   - editing is steered through the existing `Next version` flow so published CRFs are not overwritten in place
+- Form-template save rules are now enforced server-side:
+  - direct updates to published templates are rejected even if the client is bypassed
+  - publishing a version retires the previous published version for the same study/form name
+  - duplicate study/name/version conflicts return a clearer error message
+- Seeded UUID parsing is now tolerant of deterministic Postgres fixture ids:
+  - introduced a shared `PostgresUuidSchema` instead of strict `z.uuid()` checks
+  - `/studies` no longer crashes on the seeded demo data after login
+- App Router route imports were normalized to local relative imports for colocated page components.
 - Repo gates after the CRF workspace change are green:
   - `pnpm typecheck`
   - `pnpm lint`
   - `pnpm format:check`
+- Production verification is green:
+  - clean `pnpm build` now passes again
+  - `pnpm start --hostname 127.0.0.1 --port 3001` serves correctly
+  - verified live responses:
+    - `/login` -> `200`
+    - `/register` -> `200`
+    - `/studies` -> `307` to login when signed out
+    - `/studies/new` -> `307` to login when signed out
 
 ## Current Blockers
 
 - Remote migration history is not yet recorded in `supabase_migrations`, so future CLI-style migration reconciliation will need a repair step.
 - `types/database.types.ts` is still the temporary placeholder and should be regenerated from the now-live schema when a clean type-generation path is available.
 - In-thread Supabase MCP tools are still tied to older session bootstrap state, so fresh child processes or direct Management API calls remain the reliable remote-admin paths.
+- Next.js warns about multiple lockfiles because `/Users/apple/package-lock.json` exists above the repo alongside this workspace's `pnpm-lock.yaml`; build succeeds, but the warning remains until the root inference is cleaned up.
 
 ## Exact Next Steps
 
-1. Continue CRF/forms development on `/studies/[studyId]/forms` now that real remote data exists.
+1. Continue CRF/forms development on `/studies/[studyId]/forms` now that published-version rules are enforced on both the client and server.
 2. Regenerate `types/database.types.ts` from the live schema when convenient.
 3. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
-4. Keep gates green after each forms/CRF change.
-5. After the CRF builder is stable, resume the downstream data-entry / rendered eCRF workflow on `/studies/[studyId]/data`.
+4. Decide whether to silence the Next.js multi-lockfile warning by cleaning the parent `package-lock.json` situation or restoring a safe `outputFileTracingRoot`.
+5. Keep gates green after each forms/CRF change, then resume the downstream data-entry / rendered eCRF workflow on `/studies/[studyId]/data`.
 
 ## Supabase Status
 
@@ -136,6 +153,7 @@ Keep this file compact:
 - `.env.local` now contains a working `SUPABASE_SERVICE_ROLE_KEY`.
 - Remote project `voevnebhnwqeslgpzauo` now has the application schema and demo data.
 - `supabase_migrations` is still empty because the migrations were applied through the Management API rather than a tracked CLI push.
+- Seeded deterministic UUID fixture ids are now handled by shared Postgres-compatible validation instead of strict RFC-variant checks.
 - Remote seed credentials are verified with these demo logins:
   - `sponsor@clinicalhub.dev / Password123!`
   - `investigator@clinicalhub.dev / Password123!`

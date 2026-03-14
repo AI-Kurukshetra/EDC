@@ -1,13 +1,14 @@
-import { EmptyState } from '@/components/data-display/EmptyState'
+import { StudyDataWorkspace } from '@/components/forms/study-data-workspace'
+import { getStudyDataWorkspace } from '@/lib/queries/study-data'
 
-type StudyDataPageProps = Record<string, never>
+type StudyDataPageProps = {
+  params: Promise<{ studyId: string }>
+}
 
-/** Reserves the study data entry workspace for future implementation. */
-export default function StudyDataPage(_props: StudyDataPageProps) {
-  return (
-    <EmptyState
-      title="Data entry workspace pending"
-      description="This module will render eCRFs from the stored form schema with autosave, server validation, and locking flows."
-    />
-  )
+/** Renders the live eCRF data-entry workspace for the selected study. */
+export default async function StudyDataPage({ params }: StudyDataPageProps) {
+  const { studyId } = await params
+  const data = await getStudyDataWorkspace(studyId)
+
+  return <StudyDataWorkspace studyId={studyId} data={data} />
 }

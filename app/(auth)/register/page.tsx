@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { RegisterForm } from '@/app/(auth)/register/_components/register-form'
+import { RegisterForm } from './_components/register-form'
 
 type RegisterPageProps = Record<string, never>
 

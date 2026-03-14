@@ -36,7 +36,7 @@ function getPublishedTemplateLockedMessage() {
 }
 
 function getVersionConflictMessage(name: string, version: number) {
-  return `Version ${version} already exists for ${name}. Increment the version or continue the existing draft instead.`
+  return `Version ${String(version)} already exists for ${name}. Increment the version or continue the existing draft instead.`
 }
 
 function toDatabasePayload(input: SaveStudyFormTemplateInput) {

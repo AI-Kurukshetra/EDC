@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { LoginForm } from '@/app/(auth)/login/_components/login-form'
+import { LoginForm } from './_components/login-form'
 
 type LoginPageProps = Record<string, never>
 

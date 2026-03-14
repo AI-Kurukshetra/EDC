@@ -1,4 +1,4 @@
-import { CreateStudyForm } from '@/app/(dashboard)/studies/new/_components/create-study-form'
+import { CreateStudyForm } from './_components/create-study-form'
 
 type NewStudyPageProps = Record<string, never>
 

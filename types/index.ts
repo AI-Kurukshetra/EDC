@@ -22,6 +22,17 @@ export const SITE_STATUSES = ['pending', 'active', 'closed'] as const
 
 export type SiteStatus = (typeof SITE_STATUSES)[number]
 
+export const SUBJECT_STATUSES = [
+  'screened',
+  'enrolled',
+  'randomized',
+  'completed',
+  'withdrawn',
+  'screen_failed',
+] as const
+
+export type SubjectStatus = (typeof SUBJECT_STATUSES)[number]
+
 export const FORM_TEMPLATE_TYPES = [
   'screening',
   'enrollment',
@@ -57,6 +68,24 @@ export const CRF_CONDITION_OPERATORS = [
 
 export type CrfConditionOperator = (typeof CRF_CONDITION_OPERATORS)[number]
 
+export const DATA_ENTRY_STATUSES = [
+  'draft',
+  'submitted',
+  'locked',
+  'sdv_required',
+  'sdv_complete',
+] as const
+
+export type DataEntryStatus = (typeof DATA_ENTRY_STATUSES)[number]
+
+export const QUERY_STATUSES = ['open', 'answered', 'closed', 'cancelled'] as const
+
+export type QueryStatus = (typeof QUERY_STATUSES)[number]
+
+export const QUERY_PRIORITIES = ['low', 'normal', 'high'] as const
+
+export type QueryPriority = (typeof QUERY_PRIORITIES)[number]
+
 export type CrfFieldCondition = {
   fieldId: string
   operator: CrfConditionOperator
@@ -87,6 +116,10 @@ export type CrfSchema = {
   description?: string | undefined
   fields: CrfField[]
 }
+
+export type CrfEntryValue = string | number | string[]
+
+export type CrfEntryRecord = Record<string, CrfEntryValue | undefined>
 
 export type VisitSchedule = {
   visitKey: string
@@ -146,6 +179,164 @@ export type TeamAssignmentDraft = {
   userId: string
   role: UserRole
   siteCode?: string
+}
+
+export type StudySubjectSummary = {
+  id: string
+  siteId: string
+  subjectId: string
+  status: SubjectStatus
+  siteName: string
+  siteCode: string
+  consentDate: string | null
+  enrollmentDate: string | null
+  createdAt: string
+}
+
+export type StudyDataEntry = {
+  id: string
+  subjectId: string
+  formTemplateId: string
+  visitNumber: number
+  visitDate: string | null
+  data: CrfEntryRecord
+  status: DataEntryStatus
+  submittedBy: string | null
+  submittedAt: string | null
+  lockedBy: string | null
+  lockedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type StudyDataQuery = {
+  id: string
+  dataEntryId: string
+  fieldId: string
+  subjectId: string
+  queryText: string
+  status: QueryStatus
+  priority: QueryPriority
+  assignedTo: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type StudyDataWorkspace = {
+  subjects: StudySubjectSummary[]
+  templates: StudyFormTemplate[]
+  entries: StudyDataEntry[]
+  queries: StudyDataQuery[]
+}
+
+export type StudyOperationsSubject = StudySubjectSummary & {
+  siteCountry: string | null
+  withdrawalDate: string | null
+  withdrawalReason: string | null
+  entryCount: number
+  submittedEntryCount: number
+  openQueryCount: number
+  lastVisitDate: string | null
+  lastSubmittedAt: string | null
+}
+
+export type StudyOperationsQuery = {
+  id: string
+  subjectId: string
+  subjectLabel: string
+  siteName: string
+  siteCode: string
+  formName: string
+  fieldId: string
+  queryText: string
+  status: QueryStatus
+  priority: QueryPriority
+  raisedByName: string | null
+  raisedByEmail: string | null
+  assignedToName: string | null
+  assignedToEmail: string | null
+  responseCount: number
+  lastResponseAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type StudyOperationsSite = {
+  id: string
+  name: string
+  siteCode: string
+  country: string | null
+  status: SiteStatus
+  principalInvestigatorId: string | null
+  principalInvestigatorName: string | null
+  principalInvestigatorEmail: string | null
+  teamSize: number
+  subjectCount: number
+  enrolledSubjectCount: number
+  openQueryCount: number
+  entryCount: number
+  createdAt: string
+}
+
+export type StudyOperationsUser = {
+  id: string
+  userId: string
+  fullName: string
+  email: string
+  siteId: string | null
+  siteName: string | null
+  siteCode: string | null
+  siteRole: UserRole
+  profileRole: UserRole
+  isActive: boolean
+  assignedAt: string
+}
+
+export type StudyOperationsAudit = {
+  id: string
+  action: string
+  entityType: string
+  entityId: string
+  actorName: string | null
+  actorEmail: string | null
+  createdAt: string
+}
+
+export type StudyOperationsExport = {
+  id: string
+  format: 'csv' | 'json' | 'cdisc'
+  status: 'queued' | 'processing' | 'completed' | 'failed'
+  requestedByName: string | null
+  requestedByEmail: string | null
+  filePath: string | null
+  errorMessage: string | null
+  completedAt: string | null
+  signedUrlExpiresAt: string | null
+  createdAt: string
+}
+
+export type StudyExportOption = {
+  id: string
+  name: string
+  label: string
+}
+
+export type StudySiteOption = {
+  id: string
+  name: string
+  siteCode: string
+}
+
+export type StudyOperationsExportWorkspace = {
+  studyId: string
+  studyTitle: string
+  subjectCount: number
+  formCount: number
+  entryCount: number
+  openQueryCount: number
+  sites: StudySiteOption[]
+  forms: StudyExportOption[]
+  exports: StudyOperationsExport[]
 }
 
 export type StudyDetail = StudySummary & {
