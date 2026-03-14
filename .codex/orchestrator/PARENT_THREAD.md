@@ -163,11 +163,14 @@ Keep this file compact:
   - logout is wired through the existing server action in the live dashboard shell
 - Phase 2 has started with `/admin`:
   - replaced the placeholder with a real platform-ops view for super admins
-  - the admin workspace shows role distribution, user inventory, study ownership counts, site-assignment counts, and unread notification load
-- Fresh verification after the account/admin work is green:
+  - the admin workspace now shows role distribution, live user inventory, study ownership counts, site-assignment counts, unread notification load, recent audit activity, and local user filters
+  - super admins can now update another user's platform role and active flag from the admin workspace
+  - self-demotion and self-deactivation are blocked in both the UI and server action
+  - `/admin` is now protected in middleware so non-super-admin users are redirected before the page renders
+- Fresh verification after the Phase 2 admin-governance slice is green:
   - `pnpm typecheck`
   - `pnpm lint`
-  - clean `pnpm build`
+  - clean `pnpm build` after removing the stale `.next` directory
   - production smoke checks:
     - `/login` -> `200`
     - `/account` -> `307` to login when signed out
@@ -180,12 +183,11 @@ Keep this file compact:
 - In-thread Supabase MCP tools are still tied to older session bootstrap state, so fresh child processes or direct Management API calls remain the reliable remote-admin paths.
 - Next.js warns about multiple lockfiles because `/Users/apple/package-lock.json` exists above the repo alongside this workspace's `pnpm-lock.yaml`; build succeeds, but the warning remains until the root inference is cleaned up.
 - The current production-start fix depends on the `postbuild` chunk-copy workaround until the underlying Next.js server chunk-path mismatch is root-caused or eliminated.
-- `/admin` currently uses role-based rendering inside the page rather than middleware-level route enforcement; if stricter admin-only routing is desired, that policy still needs to be added.
 
 ## Exact Next Steps
 
-1. Continue Phase 2 from the new admin workspace:
-   - decide whether the next child task is admin governance workflows, stricter admin route protection, or actionable user-management controls
+1. Continue Phase 2 from the admin workspace:
+   - choose the next bounded admin feature after governance controls, such as user provisioning/invitations, platform notifications, or study-governance actions
 2. Regenerate `types/database.types.ts` from the live schema when convenient.
 3. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
 4. Decide whether to keep or replace the `postbuild` server-chunk workaround after investigating the underlying Next.js runtime path mismatch.

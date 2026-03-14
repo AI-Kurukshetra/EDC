@@ -2,7 +2,7 @@
 
 ## Active Child Task
 
-- Continue Phase 2 from the new `/admin` workspace and choose the next bounded admin/governance feature.
+- Continue Phase 2 from `/admin` after the governance slice and choose the next bounded admin feature.
 - Regenerate `types/database.types.ts` when a clean generation path is available.
 - Repair / backfill `supabase_migrations` before relying on CLI migration-history workflows again.
 - Decide whether to keep or replace the `postbuild` server-chunk workaround after root-causing the Next.js runtime-path issue.
@@ -10,8 +10,8 @@
 
 ## Next Child Tasks
 
-- Add stricter admin-only route enforcement if product policy requires it.
-- Decide whether the next Phase 2 slice is admin governance, user management, or another new workflow.
+- Add the next actionable admin capability, such as user provisioning/invitations, platform notifications, or study-governance controls.
+- Refresh production smoke checks after any middleware or postbuild-runtime changes.
 - Refresh `PARENT_THREAD.md` at every handoff.
 
 ## Parked
