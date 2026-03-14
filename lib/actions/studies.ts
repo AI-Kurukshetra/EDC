@@ -20,6 +20,11 @@ const CreatedSiteSchema = z.object({
   site_code: z.string(),
 })
 
+const StudyCreatorProfileSchema = z.object({
+  role: z.enum(['sponsor', 'data_manager', 'super_admin', 'investigator', 'coordinator', 'monitor', 'read_only']),
+  is_active: z.boolean(),
+})
+
 function flattenErrors(result: {
   error: { flatten: () => { fieldErrors: Record<string, string[]> } }
 }) {
@@ -50,11 +55,22 @@ export async function createStudy(raw: unknown): Promise<ActionResult<{ id: stri
     return { success: false, error: 'Unable to validate your account permissions.' }
   }
 
-  if (!viewerResult.data || viewerResult.data.is_active !== true) {
+  if (viewerResult.data?.is_active !== true) {
     return { success: false, error: 'Your account is inactive. Contact an administrator.' }
   }
 
-  if (!['sponsor', 'data_manager', 'super_admin'].includes(viewerResult.data.role)) {
+  const viewerProfile = StudyCreatorProfileSchema.safeParse(viewerResult.data)
+
+  if (!viewerProfile.success) {
+    return { success: false, error: 'Unable to validate your account permissions.' }
+  }
+
+  const viewerRole = viewerProfile.data.role
+
+  if (
+    typeof viewerRole !== 'string' ||
+    (viewerRole !== 'sponsor' && viewerRole !== 'data_manager' && viewerRole !== 'super_admin')
+  ) {
     return {
       success: false,
       error:

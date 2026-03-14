@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 
-import { CreateStudyForm } from './_components/create-study-form'
 import { getCurrentSessionProfile } from '@/lib/queries/account'
 import { getServerSupabase } from '@/lib/supabase/server'
+
+import { CreateStudyForm } from './_components/create-study-form'
 
 type NewStudyPageProps = Record<string, never>
 

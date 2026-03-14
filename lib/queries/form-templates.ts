@@ -44,7 +44,7 @@ function toSafeFormTemplate(
   if (!parsedRow.success) {
     console.warn(
       `Skipping invalid form_templates row at index ${String(index)} due to shape mismatch.`,
-      parsedRow.error.flatten().fieldErrors,
+      z.treeifyError(parsedRow.error),
     )
     return null
   }
@@ -53,7 +53,7 @@ function toSafeFormTemplate(
   if (!schemaResult.success) {
     console.warn(
       `Skipping form template ${parsedRow.data.id} due to invalid schema payload.`,
-      schemaResult.error.flatten().fieldErrors,
+      z.treeifyError(schemaResult.error),
     )
     return null
   }
@@ -65,7 +65,7 @@ function toSafeFormTemplate(
   if (!visitScheduleResult.success) {
     console.warn(
       `Skipping form template ${parsedRow.data.id} due to invalid visit_schedule payload.`,
-      visitScheduleResult.error.flatten().fieldErrors,
+      z.treeifyError(visitScheduleResult.error),
     )
     return null
   }
@@ -94,7 +94,7 @@ export const getStudyFormTemplates = cache(
       throw new Error(error.message)
     }
 
-    return (data ?? [])
+    return data
       .map((row, index) => toSafeFormTemplate(row, index))
       .filter((template): template is StudyFormTemplate => template !== null)
   },

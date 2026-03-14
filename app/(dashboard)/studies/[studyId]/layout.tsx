@@ -16,6 +16,7 @@ const TAB_ITEMS = [
   { href: '/queries', label: 'Queries' },
   { href: '/sites', label: 'Sites' },
   { href: '/users', label: 'Users' },
+  { href: '/documents', label: 'Documents' },
   { href: '/audit', label: 'Audit' },
   { href: '/export', label: 'Export' },
 ] as const

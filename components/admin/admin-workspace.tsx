@@ -846,7 +846,7 @@ function AdminDocumentRegister({ documents, studies }: AdminDocumentRegisterProp
 
 function AdminSignatureRegister({ signatures }: AdminSignatureRegisterProps) {
   const [searchValue, setSearchValue] = useState('')
-  const [entityTypeFilter, setEntityTypeFilter] = useState<'all' | string>('all')
+  const [entityTypeFilter, setEntityTypeFilter] = useState('all')
   const deferredSearchValue = useDeferredValue(searchValue)
   const normalizedSearchValue = deferredSearchValue.trim().toLowerCase()
   const entityTypeOptions = Array.from(new Set(signatures.map((signature) => signature.entityType)))

@@ -6,8 +6,8 @@ import { z } from 'zod'
 
 import { invokeEdgeFunction } from '@/lib/supabase/functions'
 import { getAuthenticatedUser, getServerSupabase } from '@/lib/supabase/server'
-import { RegisterStudyDocumentSchema } from '@/lib/validations/study-document.schema'
 import { PostgresUuidSchema } from '@/lib/validations/identifiers'
+import { RegisterStudyDocumentSchema } from '@/lib/validations/study-document.schema'
 import { USER_ROLES } from '@/types'
 
 import type { ActionResult } from '@/types/actions'

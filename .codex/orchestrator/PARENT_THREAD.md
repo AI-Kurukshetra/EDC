@@ -200,6 +200,15 @@ Keep this file compact:
 - Phase 2 signature oversight is now live in `/admin`:
   - the admin workspace now shows a searchable recent signature register with entity-type filters, signer identity, signed timestamps, and certificate hashes
   - signature rows are enriched server-side with contextual labels for known entities such as studies, study documents, exports, profiles, site assignments, and subjects when that context can be resolved
+- Phase 2 study document operations are now live in the study shell:
+  - added `/studies/[studyId]/documents` and a `Documents` tab in the study workspace navigation
+  - the study route now shows a searchable document register with category/signature filters, uploader metadata, and per-document signature summaries
+  - sponsor, data-manager, and super-admin users can now register study document metadata directly from the study workspace
+  - study document audit events now flow into the study audit workspace because document ids are included in the relevant entity set
+- Phase 2 study signature capture is now live in the study shell:
+  - each study document card can now open an inline 21 CFR Part 11-style signature capture panel with certification meaning, password re-entry, timestamp preview, and legal declaration text
+  - signing inserts immutable `signatures` records for `study_document` entities after password re-authentication and SHA-256 certificate-hash generation
+  - successful signature capture records the existing `signature.captured` audit event, which now feeds the dashboard activity icons, study audit workspace, and admin signature oversight automatically
 - Gate/build verification was rerun on March 14, 2026 after the auth recovery slice:
   - `pnpm typecheck`
   - `pnpm lint`
@@ -219,7 +228,7 @@ Keep this file compact:
 ## Exact Next Steps
 
 1. Continue Phase 2 from the admin workspace:
-   - continue from the new governance, site-access, auth-recovery, study-oversight, document-register, and signature-oversight controls and choose the next bounded admin feature, such as broader document operations or a user-facing signature capture workflow
+   - continue from the new governance, site-access, auth-recovery, study-oversight, document-register, signature-oversight, study-document, and study-signature controls and choose the next bounded Phase 2 feature, such as document update/version controls or broader signature workflows on other record types
 2. Regenerate `types/database.types.ts` from the live schema when convenient.
 3. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
 4. Decide whether to keep or replace the `postbuild` server-chunk workaround after investigating the underlying Next.js runtime path mismatch.

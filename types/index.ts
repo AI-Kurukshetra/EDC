@@ -101,6 +101,14 @@ export const STUDY_DOCUMENT_CATEGORIES = [
 
 export type StudyDocumentCategory = (typeof STUDY_DOCUMENT_CATEGORIES)[number]
 
+export const DOCUMENT_SIGNATURE_MEANINGS = [
+  'I confirm this document is accurate and complete.',
+  'I approve this document for study use.',
+  'I acknowledge I have reviewed this document.',
+] as const
+
+export type DocumentSignatureMeaning = (typeof DOCUMENT_SIGNATURE_MEANINGS)[number]
+
 export type CrfFieldCondition = {
   fieldId: string
   operator: CrfConditionOperator
@@ -337,6 +345,9 @@ export type StudyOperationsDocumentsWorkspace = {
   studyId: string
   studyTitle: string
   canManageDocuments: boolean
+  canSignDocuments: boolean
+  viewerName: string | null
+  viewerEmail: string | null
   viewerRole: UserRole | null
   documents: StudyOperationsDocument[]
 }

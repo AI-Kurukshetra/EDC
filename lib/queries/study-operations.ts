@@ -774,6 +774,9 @@ export const getStudyDocumentsWorkspace = cache(
       studyId: data.study.id,
       studyTitle: data.study.title,
       canManageDocuments,
+      canSignDocuments: viewer?.isActive === true,
+      viewerName: viewer?.fullName ?? null,
+      viewerEmail: viewer?.email ?? null,
       viewerRole: viewer?.role ?? null,
       documents,
     }

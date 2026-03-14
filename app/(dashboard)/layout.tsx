@@ -12,7 +12,7 @@ type DashboardLayoutProps = {
 /** Composes the authenticated dashboard shell with navigation and session context. */
 export default async function DashboardLayout({ children }: DashboardLayoutProps) {
   const profile = await getCurrentSessionProfile()
-  const canAccessAdmin = profile?.role === 'super_admin' && profile?.isActive === true
+  const canAccessAdmin = profile?.role === 'super_admin' && profile.isActive
   const canCreateStudy = Boolean(
     profile &&
       profile.isActive &&

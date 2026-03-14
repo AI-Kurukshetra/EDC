@@ -69,7 +69,7 @@ export async function updateSession(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle()
 
-    if (profileError || !profile || profile.is_active !== true) {
+    if (profileError || profile?.is_active !== true) {
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = '/'
       redirectUrl.searchParams.delete('redirectTo')
@@ -85,7 +85,9 @@ export async function updateSession(request: NextRequest) {
 
     if (
       isStudyCreateRoute &&
-      !['sponsor', 'data_manager', 'super_admin'].includes(profile.role)
+      profile.role !== 'sponsor' &&
+      profile.role !== 'data_manager' &&
+      profile.role !== 'super_admin'
     ) {
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = '/studies'
