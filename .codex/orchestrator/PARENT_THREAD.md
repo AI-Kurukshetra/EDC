@@ -163,18 +163,19 @@ Keep this file compact:
   - logout is wired through the existing server action in the live dashboard shell
 - Phase 2 has started with `/admin`:
   - replaced the placeholder with a real platform-ops view for super admins
-  - the admin workspace now shows role distribution, live user inventory, study ownership counts, site-assignment counts, unread notification load, recent audit activity, and local user filters
+  - the admin workspace now shows role distribution, live user inventory, study ownership counts, site-assignment counts, unread notification load, recent audit activity, recent platform notifications, and local user filters
   - super admins can now update another user's platform role and active flag from the admin workspace
   - self-demotion and self-deactivation are blocked in both the UI and server action
   - `/admin` is now protected in middleware so non-super-admin users are redirected before the page renders
-- Fresh verification after the Phase 2 admin-governance slice is green:
-  - `pnpm typecheck`
-  - `pnpm lint`
-  - clean `pnpm build` after removing the stale `.next` directory
-  - production smoke checks:
-    - `/login` -> `200`
-    - `/account` -> `307` to login when signed out
-    - `/admin` -> `307` to login when signed out
+- Phase 2 platform notifications are now wired:
+  - super admins can send notifications to one user, one role audience, or all active users from `/admin`
+  - admin sees recent notification deliveries and read state in the same workspace
+  - `/account` now shows a real inbox and supports marking one or all notifications as read
+- Phase 2 admin provisioning has started in `/admin`:
+  - super admins can now provision a new platform account with full name, email, platform role, and temporary password
+  - provisioning can optionally attach the new user to an existing site with a site role
+  - the provisioning action uses the service-role admin client, writes the profile role explicitly, creates the optional `site_users` assignment, sends a welcome inbox notification, and records an audit event
+- Gate/build verification is intentionally deferred until the end of the phase per user instruction.
 
 ## Current Blockers
 
@@ -187,7 +188,7 @@ Keep this file compact:
 ## Exact Next Steps
 
 1. Continue Phase 2 from the admin workspace:
-   - choose the next bounded admin feature after governance controls, such as user provisioning/invitations, platform notifications, or study-governance actions
+   - continue from the new admin provisioning flow and choose the next bounded admin feature after provisioning, such as invitation-style onboarding polish or study-governance actions
 2. Regenerate `types/database.types.ts` from the live schema when convenient.
 3. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
 4. Decide whether to keep or replace the `postbuild` server-chunk workaround after investigating the underlying Next.js runtime path mismatch.

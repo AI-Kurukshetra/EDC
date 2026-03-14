@@ -86,6 +86,10 @@ export const QUERY_PRIORITIES = ['low', 'normal', 'high'] as const
 
 export type QueryPriority = (typeof QUERY_PRIORITIES)[number]
 
+export const NOTIFICATION_TYPES = ['announcement', 'task', 'alert', 'reminder'] as const
+
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
+
 export type CrfFieldCondition = {
   fieldId: string
   operator: CrfConditionOperator
@@ -396,10 +400,22 @@ export type AccountStudySummary = {
   status: StudyStatus
 }
 
+export type AccountNotificationSummary = {
+  id: string
+  type: NotificationType
+  title: string
+  message: string
+  entityId: string | null
+  priority: QueryPriority
+  readAt: string | null
+  createdAt: string
+}
+
 export type AccountWorkspace = {
   profile: SessionProfileSummary
   siteAssignments: AccountSiteAssignment[]
   sponsoredStudies: AccountStudySummary[]
+  notifications: AccountNotificationSummary[]
 }
 
 export type AdminRoleSummary = {
@@ -418,6 +434,7 @@ export type AdminUserSummary = {
   siteAssignmentCount: number
   sponsoredStudyCount: number
   assignedSites: string[]
+  siteAssignments: AdminUserSiteAssignment[]
 }
 
 export type AdminAuditEvent = {
@@ -427,6 +444,50 @@ export type AdminAuditEvent = {
   entityId: string
   actorName: string | null
   actorEmail: string | null
+  createdAt: string
+}
+
+export type AdminSiteOption = {
+  id: string
+  name: string
+  siteCode: string
+  studyId: string
+  studyTitle: string
+}
+
+export type AdminUserSiteAssignment = {
+  id: string
+  siteId: string
+  siteName: string
+  siteCode: string
+  studyId: string
+  studyTitle: string
+  role: UserRole
+}
+
+export type AdminStudySummary = {
+  id: string
+  title: string
+  protocolNumber: string
+  status: StudyStatus
+  sponsorId: string
+  sponsorName: string | null
+  sponsorEmail: string | null
+  siteCount: number
+  subjectCount: number
+}
+
+export type AdminNotificationSummary = {
+  id: string
+  userId: string
+  recipientName: string
+  recipientEmail: string
+  type: NotificationType
+  title: string
+  message: string
+  entityId: string | null
+  priority: QueryPriority
+  readAt: string | null
   createdAt: string
 }
 
@@ -446,4 +507,7 @@ export type AdminWorkspace =
       roleDistribution: AdminRoleSummary[]
       users: AdminUserSummary[]
       recentAuditEvents: AdminAuditEvent[]
+      studies: AdminStudySummary[]
+      sites: AdminSiteOption[]
+      recentNotifications: AdminNotificationSummary[]
     }

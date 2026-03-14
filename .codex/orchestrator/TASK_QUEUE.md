@@ -2,16 +2,15 @@
 
 ## Active Child Task
 
-- Continue Phase 2 from `/admin` after the governance slice and choose the next bounded admin feature.
+- Continue Phase 2 from `/admin` after the governance, notification, and provisioning slices, and choose the next bounded admin feature.
 - Regenerate `types/database.types.ts` when a clean generation path is available.
 - Repair / backfill `supabase_migrations` before relying on CLI migration-history workflows again.
 - Decide whether to keep or replace the `postbuild` server-chunk workaround after root-causing the Next.js runtime-path issue.
-- Keep gates green after each forms / CRF change and keep an eye on the non-blocking Next.js multi-lockfile warning during production builds.
+- End-of-phase gate/build verification is intentionally deferred for now.
 
 ## Next Child Tasks
 
-- Add the next actionable admin capability, such as user provisioning/invitations, platform notifications, or study-governance controls.
-- Refresh production smoke checks after any middleware or postbuild-runtime changes.
+- Add the next admin capability after provisioning, such as invitation/onboarding polish or study-governance controls.
 - Refresh `PARENT_THREAD.md` at every handoff.
 
 ## Parked

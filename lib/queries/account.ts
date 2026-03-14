@@ -5,6 +5,8 @@ import { z } from 'zod'
 import { getAuthenticatedUser, getServerSupabase } from '@/lib/supabase/server'
 import { PostgresUuidSchema } from '@/lib/validations/identifiers'
 import {
+  NOTIFICATION_TYPES,
+  QUERY_PRIORITIES,
   STUDY_STATUSES,
   USER_ROLES,
   type AccountWorkspace,
@@ -38,6 +40,17 @@ const StudyRowSchema = z.object({
   title: z.string(),
   protocol_number: z.string(),
   status: z.enum(STUDY_STATUSES),
+})
+
+const NotificationRowSchema = z.object({
+  id: PostgresUuidSchema,
+  type: z.enum(NOTIFICATION_TYPES),
+  title: z.string(),
+  message: z.string(),
+  entity_id: z.string().nullable(),
+  priority: z.enum(QUERY_PRIORITIES),
+  read_at: z.string().nullable(),
+  created_at: z.string(),
 })
 
 function getExactCount(count: number | null) {
@@ -105,13 +118,19 @@ export const getAccountWorkspace = cache(async (): Promise<AccountWorkspace | nu
 
   const supabase = await getServerSupabase()
 
-  const [siteAssignmentsResult, sponsoredStudiesResult] = await Promise.all([
+  const [siteAssignmentsResult, sponsoredStudiesResult, notificationsResult] = await Promise.all([
     supabase.from('site_users').select('id, site_id, role').eq('user_id', profile.id),
     supabase
       .from('studies')
       .select('id, title, protocol_number, status')
       .eq('sponsor_id', profile.id)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('notifications')
+      .select('id, type, title, message, entity_id, priority, read_at, created_at')
+      .eq('user_id', profile.id)
+      .order('created_at', { ascending: false })
+      .limit(20),
   ])
 
   if (siteAssignmentsResult.error) {
@@ -120,6 +139,10 @@ export const getAccountWorkspace = cache(async (): Promise<AccountWorkspace | nu
 
   if (sponsoredStudiesResult.error) {
     throw new Error(sponsoredStudiesResult.error.message)
+  }
+
+  if (notificationsResult.error) {
+    throw new Error(notificationsResult.error.message)
   }
 
   const siteAssignments = SiteAssignmentRowSchema.array().parse(siteAssignmentsResult.data)
@@ -185,6 +208,18 @@ export const getAccountWorkspace = cache(async (): Promise<AccountWorkspace | nu
         title: study.title,
         protocolNumber: study.protocol_number,
         status: study.status,
+      })),
+    notifications: NotificationRowSchema.array()
+      .parse(notificationsResult.data)
+      .map((notification) => ({
+        id: notification.id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        entityId: notification.entity_id,
+        priority: notification.priority,
+        readAt: notification.read_at,
+        createdAt: notification.created_at,
       })),
   }
 })
