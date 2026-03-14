@@ -2,7 +2,7 @@
 
 ## Active Child Task
 
-- Continue Phase 2 after the governance, provisioning, notification, site-access, auth-recovery, study-oversight, document-register, signature-oversight, study-document, and study-signature slices, and choose the next bounded feature.
+- Continue Phase 2 after the governance, provisioning, notification, site-access, auth-recovery, study-oversight, document-register, signature-oversight, study-document, study-signature, document-lifecycle, and document-lineage slices, and choose the next bounded feature.
 - Regenerate `types/database.types.ts` when a clean generation path is available.
 - Repair / backfill `supabase_migrations` before relying on CLI migration-history workflows again.
 - Decide whether to keep or replace the `postbuild` server-chunk workaround after root-causing the Next.js runtime-path issue.
@@ -10,7 +10,7 @@
 
 ## Next Child Tasks
 
-- Add the next Phase 2 capability after the study signature flow, such as document update/version controls or broader signature coverage for other record types.
+- Add the next Phase 2 capability after document lineage, such as broader signature coverage for other record types or richer document operations beyond metadata/versioning.
 - Refresh `PARENT_THREAD.md` at every handoff.
 
 ## Parked

@@ -13,6 +13,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import {
+  createStudyDocumentVersion,
+  updateStudyDocument,
+} from '@/lib/actions/study-document-lifecycle'
 import { registerStudyDocument } from '@/lib/actions/study-documents'
 import { signStudyDocument } from '@/lib/actions/study-signatures'
 import { formatDateTime } from '@/lib/utils/format'
@@ -31,6 +35,8 @@ type StudyDocumentsWorkspaceProps = {
   workspace: StudyOperationsDocumentsWorkspace
 }
 
+type DocumentLifecycleMode = 'edit' | 'version'
+
 function formatDocumentCategory(category: StudyDocumentCategory) {
   return category.replaceAll('_', ' ')
 }
@@ -45,6 +51,12 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
   const [searchValue, setSearchValue] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<'all' | StudyDocumentCategory>('all')
   const [signatureFilter, setSignatureFilter] = useState<'all' | 'signed' | 'unsigned'>('all')
+  const [versionFilter, setVersionFilter] = useState<'all' | 'latest' | 'history'>('latest')
+  const [lifecycleDocumentId, setLifecycleDocumentId] = useState<string | null>(null)
+  const [lifecycleMode, setLifecycleMode] = useState<DocumentLifecycleMode | null>(null)
+  const [lifecycleName, setLifecycleName] = useState('')
+  const [lifecycleFilePath, setLifecycleFilePath] = useState('')
+  const [lifecycleCategory, setLifecycleCategory] = useState<StudyDocumentCategory>('general')
   const [signingDocumentId, setSigningDocumentId] = useState<string | null>(null)
   const [signatureMeaning, setSignatureMeaning] = useState<DocumentSignatureMeaning>(
     DOCUMENT_SIGNATURE_MEANINGS[0],
@@ -52,6 +64,7 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
   const [signaturePassword, setSignaturePassword] = useState('')
   const [signaturePreviewAt, setSignaturePreviewAt] = useState<string | null>(null)
   const [isSaving, startSavingTransition] = useTransition()
+  const [isManagingLifecycle, startLifecycleTransition] = useTransition()
   const [isSigning, startSigningTransition] = useTransition()
   const deferredSearchValue = useDeferredValue(searchValue)
   const normalizedSearchValue = deferredSearchValue.trim().toLowerCase()
@@ -72,13 +85,17 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
     const matchesSignature =
       signatureFilter === 'all' ||
       (signatureFilter === 'signed' ? document.signatureCount > 0 : document.signatureCount === 0)
+    const matchesVersion =
+      versionFilter === 'all' ||
+      (versionFilter === 'latest' ? document.isLatestVersion : !document.isLatestVersion)
 
-    return matchesSearch && matchesCategory && matchesSignature
+    return matchesSearch && matchesCategory && matchesSignature && matchesVersion
   })
   const activeFilterCount =
     Number(searchValue.trim().length > 0) +
     Number(categoryFilter !== 'all') +
-    Number(signatureFilter !== 'all')
+    Number(signatureFilter !== 'all') +
+    Number(versionFilter !== 'latest')
   const signedDocumentCount = workspace.documents.filter(
     (document) => document.signatureCount > 0,
   ).length
@@ -86,13 +103,34 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
     (count, document) => count + document.signatureCount,
     0,
   )
-  const categoryCount = new Set(workspace.documents.map((document) => document.category)).size
+  const latestDocumentCount = workspace.documents.filter((document) => document.isLatestVersion).length
+  const versionedFamilyCount = workspace.documents.filter((document) => document.isLatestVersion)
+    .filter((document) => document.familyVersionCount > 1).length
 
   function resetComposer() {
     setName('')
     setFilePath('')
     setCategory('general')
     setVersion('1')
+  }
+
+  function resetLifecycleComposer() {
+    setLifecycleDocumentId(null)
+    setLifecycleMode(null)
+    setLifecycleName('')
+    setLifecycleFilePath('')
+    setLifecycleCategory('general')
+  }
+
+  function openLifecycleComposer(
+    mode: DocumentLifecycleMode,
+    document: StudyOperationsDocumentsWorkspace['documents'][number],
+  ) {
+    setLifecycleDocumentId(document.id)
+    setLifecycleMode(mode)
+    setLifecycleName(document.name)
+    setLifecycleFilePath(document.filePath)
+    setLifecycleCategory(document.category)
   }
 
   function resetSignatureComposer() {
@@ -158,13 +196,65 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
     })
   }
 
+  function handleUpdateDocument(documentId: string) {
+    startLifecycleTransition(() => {
+      void (async () => {
+        const result = await updateStudyDocument({
+          studyId: workspace.studyId,
+          documentId,
+          name: lifecycleName,
+          filePath: lifecycleFilePath,
+          category: lifecycleCategory,
+        })
+
+        if (!result.success) {
+          toast.error(
+            typeof result.error === 'string' ? result.error : 'Unable to update the document.',
+          )
+          return
+        }
+
+        toast.success('Document metadata updated.')
+        resetLifecycleComposer()
+        router.refresh()
+      })()
+    })
+  }
+
+  function handleCreateNextVersion(documentId: string) {
+    startLifecycleTransition(() => {
+      void (async () => {
+        const result = await createStudyDocumentVersion({
+          studyId: workspace.studyId,
+          documentId,
+          name: lifecycleName,
+          filePath: lifecycleFilePath,
+          category: lifecycleCategory,
+        })
+
+        if (!result.success) {
+          toast.error(
+            typeof result.error === 'string'
+              ? result.error
+              : 'Unable to create the next document version.',
+          )
+          return
+        }
+
+        toast.success(`Created version ${String(result.data.version)}.`)
+        resetLifecycleComposer()
+        router.refresh()
+      })()
+    })
+  }
+
   return (
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Documents"
-          value={workspace.documents.length}
-          detail="Registered metadata records currently attached to this study."
+          value={latestDocumentCount}
+          detail="Current document families represented by their latest registered version."
         />
         <StatCard
           label="Signed documents"
@@ -177,9 +267,9 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
           detail="All document-linked signatures currently visible in this study."
         />
         <StatCard
-          label="Categories"
-          value={categoryCount}
-          detail="Distinct document categories represented in the current register."
+          label="Versioned families"
+          value={versionedFamilyCount}
+          detail="Current document families that now carry at least one older version in history."
         />
       </section>
 
@@ -354,7 +444,7 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] p-4 lg:grid-cols-[1fr_14rem_12rem_auto]">
+          <div className="grid gap-3 rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] p-4 lg:grid-cols-[1fr_14rem_12rem_12rem_auto]">
             <div className="relative">
               <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[color:var(--color-gray-400)]" />
               <Input
@@ -394,6 +484,18 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
               <option value="unsigned">Unsigned only</option>
             </select>
 
+            <select
+              className={SELECT_CLASS_NAME}
+              value={versionFilter}
+              onChange={(event) => {
+                setVersionFilter(event.target.value as 'all' | 'latest' | 'history')
+              }}
+            >
+              <option value="latest">Latest versions</option>
+              <option value="all">All versions</option>
+              <option value="history">History only</option>
+            </select>
+
             <Button
               disabled={activeFilterCount === 0}
               variant="outline"
@@ -401,6 +503,7 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
                 setSearchValue('')
                 setCategoryFilter('all')
                 setSignatureFilter('all')
+                setVersionFilter('latest')
               }}
             >
               Reset filters
@@ -435,9 +538,20 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
                       <Badge variant={document.signatureCount > 0 ? 'success' : 'warning'}>
                         {document.signatureCount > 0 ? 'signed' : 'unsigned'}
                       </Badge>
+                      <Badge variant={document.isLatestVersion ? 'success' : 'muted'}>
+                        {document.isLatestVersion ? 'current' : 'superseded'}
+                      </Badge>
+                      {document.signatureCount > 0 ? (
+                        <Badge variant="danger">locked</Badge>
+                      ) : null}
                     </div>
                     <p className="mt-2 font-[family-name:var(--font-mono)] text-xs text-[color:var(--color-gray-600)]">
                       {document.filePath}
+                    </p>
+                    <p className="mt-2 text-sm text-[color:var(--color-gray-600)]">
+                      Version family: {document.familyVersionCount} record
+                      {document.familyVersionCount === 1 ? '' : 's'} with latest v
+                      {document.latestVersion}.
                     </p>
                   </div>
 
@@ -490,6 +604,193 @@ export function StudyDocumentsWorkspace({ workspace }: StudyDocumentsWorkspacePr
                     </p>
                   </div>
                 </div>
+
+                {document.familyVersionCount > 1 ? (
+                  <div className="mt-4 rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-4">
+                    <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                      Version history
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {document.versionHistory.map((versionEntry) => (
+                        <div
+                          key={versionEntry.id}
+                          className="rounded-xl border border-[color:var(--color-gray-200)] bg-white px-3 py-3 text-sm text-[color:var(--color-gray-700)]"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium">v{versionEntry.version}</span>
+                            <Badge variant={versionEntry.isLatestVersion ? 'success' : 'muted'}>
+                              {versionEntry.isLatestVersion ? 'current' : 'history'}
+                            </Badge>
+                            <Badge
+                              variant={versionEntry.signatureCount > 0 ? 'success' : 'warning'}
+                            >
+                              {versionEntry.signatureCount > 0
+                                ? `${versionEntry.signatureCount} signed`
+                                : 'unsigned'}
+                            </Badge>
+                          </div>
+                          <p className="mt-2 text-xs text-[color:var(--color-gray-600)]">
+                            {formatDateTime(versionEntry.createdAt)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {workspace.canManageDocuments ? (
+                  <div className="mt-4 rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-sm text-[color:var(--color-gray-700)]">
+                        {document.signatureCount > 0
+                          ? 'Signed document metadata is locked. Create a next version for downstream changes.'
+                          : 'Unsigned document metadata can be corrected in place or branched into a new version.'}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          disabled={isManagingLifecycle || document.signatureCount > 0}
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            openLifecycleComposer('edit', document)
+                          }}
+                        >
+                          Edit metadata
+                        </Button>
+                        <Button
+                          disabled={isManagingLifecycle}
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            openLifecycleComposer('version', document)
+                          }}
+                        >
+                          Next version
+                        </Button>
+                      </div>
+                    </div>
+
+                    {lifecycleDocumentId === document.id && lifecycleMode ? (
+                      <div className="mt-4 space-y-4 rounded-2xl border border-[color:var(--color-gray-200)] bg-white px-4 py-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="font-medium text-[color:var(--color-gray-900)]">
+                              {lifecycleMode === 'edit'
+                                ? 'Edit document metadata'
+                                : 'Create next document version'}
+                            </p>
+                            <p className="mt-1 text-sm text-[color:var(--color-gray-600)]">
+                              {lifecycleMode === 'edit'
+                                ? 'This updates the current unsigned record in place.'
+                                : `This keeps version ${String(document.version)} intact and creates a new follow-on record.`}
+                            </p>
+                          </div>
+
+                          <Button
+                            disabled={isManagingLifecycle}
+                            size="sm"
+                            variant="outline"
+                            onClick={resetLifecycleComposer}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+                            <span className="font-medium">Document name</span>
+                            <Input
+                              disabled={isManagingLifecycle || lifecycleMode === 'version'}
+                              value={lifecycleName}
+                              onChange={(event) => {
+                                setLifecycleName(event.target.value)
+                              }}
+                            />
+                          </label>
+
+                          <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+                            <span className="font-medium">
+                              {lifecycleMode === 'edit' ? 'Current version' : 'Next version'}
+                            </span>
+                            <Input
+                              disabled
+                              value={
+                                lifecycleMode === 'edit'
+                                  ? `v${String(document.version)}`
+                                  : `v${String(document.version + 1)}+`
+                              }
+                            />
+                          </label>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+                            <span className="font-medium">Category</span>
+                            <select
+                              className={SELECT_CLASS_NAME}
+                              disabled={isManagingLifecycle || lifecycleMode === 'version'}
+                              value={lifecycleCategory}
+                              onChange={(event) => {
+                                setLifecycleCategory(event.target.value as StudyDocumentCategory)
+                              }}
+                            >
+                              {STUDY_DOCUMENT_CATEGORIES.map((categoryOption) => (
+                                <option key={categoryOption} value={categoryOption}>
+                                  {formatDocumentCategory(categoryOption)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+                            <span className="font-medium">Canonical file path</span>
+                            <Input
+                              disabled={isManagingLifecycle}
+                              value={lifecycleFilePath}
+                              onChange={(event) => {
+                                setLifecycleFilePath(event.target.value)
+                              }}
+                            />
+                          </label>
+                        </div>
+
+                        {lifecycleMode === 'version' ? (
+                          <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-4 text-sm text-[color:var(--color-gray-700)]">
+                            Name and category stay fixed so the version family remains intact. Use
+                            the canonical file path for the updated artifact location.
+                          </div>
+                        ) : null}
+
+                        <div className="flex justify-end">
+                          <Button
+                            disabled={
+                              isManagingLifecycle ||
+                              lifecycleName.trim().length < 3 ||
+                              lifecycleFilePath.trim().length < 3
+                            }
+                            onClick={() => {
+                              if (lifecycleMode === 'edit') {
+                                handleUpdateDocument(document.id)
+                                return
+                              }
+
+                              handleCreateNextVersion(document.id)
+                            }}
+                          >
+                            {isManagingLifecycle
+                              ? lifecycleMode === 'edit'
+                                ? 'Saving...'
+                                : 'Creating...'
+                              : lifecycleMode === 'edit'
+                                ? 'Save metadata'
+                                : 'Create next version'}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {workspace.canSignDocuments ? (
                   <div className="mt-4 rounded-2xl border border-[color:var(--color-navy-100)] bg-[color:var(--color-navy-50)] px-4 py-4">

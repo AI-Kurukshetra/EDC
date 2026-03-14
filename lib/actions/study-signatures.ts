@@ -100,7 +100,7 @@ export async function signStudyDocument(
     return { success: false, error: 'Password verification failed. Signature not captured.' }
   }
 
-  if (reauthResult.data.user.id !== viewer.data.id) {
+  if (reauthResult.data.user?.id !== viewer.data.id) {
     return { success: false, error: 'Unable to verify your signing identity.' }
   }
 
@@ -139,7 +139,6 @@ export async function signStudyDocument(
       document.data.version,
       parsed.data.signatureMeaning,
       signedAt,
-      parsed.data.password,
     ].join(':'),
   )
 

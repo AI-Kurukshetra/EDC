@@ -11,13 +11,13 @@ import { useUiStore } from '@/lib/stores/ui-store'
 import { cn } from '@/lib/utils/cn'
 
 const NAV_ITEMS = [
-  { href: '/', label: 'Dashboard', icon: BarChart3 },
+  { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
   { href: '/studies', label: 'Studies', icon: FlaskConical },
   { href: '/studies/new', label: 'New Study', icon: FolderKanban },
   { href: '/admin', label: 'Admin', icon: ShieldCheck },
 ]
 
-const QUICK_ACTIONS = [{ href: '/studies', label: 'Review Queries', icon: ClipboardCheck }]
+const QUICK_ACTIONS = [{ href: '/queries', label: 'Review Queries', icon: ClipboardCheck }]
 
 type SidebarProps = {
   canAccessAdmin?: boolean
@@ -45,6 +45,11 @@ export function Sidebar({
 
     return true
   })
+  const activeHref =
+    navItems
+      .slice()
+      .sort((left, right) => right.href.length - left.href.length)
+      .find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.href ?? null
 
   return (
     <>
@@ -90,8 +95,7 @@ export function Sidebar({
 
         <nav className="mt-8 flex flex-col gap-2">
           {navItems.map((item) => {
-            const isActive =
-              pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+            const isActive = activeHref === item.href
 
             return (
               <Link

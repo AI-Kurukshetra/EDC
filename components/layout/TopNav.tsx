@@ -81,11 +81,13 @@ export function TopNav({ profile, className }: TopNavProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button className="relative" size="icon" variant="outline">
-            <Bell className="h-4 w-4" />
-            {profile && profile.unreadNotificationCount > 0 ? (
-              <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-[color:var(--color-danger-500)]" />
-            ) : null}
+          <Button asChild className="relative" size="icon" variant="outline">
+            <Link href="/account#inbox">
+              <Bell className="h-4 w-4" />
+              {profile && profile.unreadNotificationCount > 0 ? (
+                <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-[color:var(--color-danger-500)]" />
+              ) : null}
+            </Link>
           </Button>
           <div className="hidden text-right sm:block">
             <p className="text-sm font-medium text-[color:var(--color-gray-900)]">

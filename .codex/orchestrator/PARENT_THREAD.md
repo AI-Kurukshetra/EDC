@@ -209,6 +209,16 @@ Keep this file compact:
   - each study document card can now open an inline 21 CFR Part 11-style signature capture panel with certification meaning, password re-entry, timestamp preview, and legal declaration text
   - signing inserts immutable `signatures` records for `study_document` entities after password re-authentication and SHA-256 certificate-hash generation
   - successful signature capture records the existing `signature.captured` audit event, which now feeds the dashboard activity icons, study audit workspace, and admin signature oversight automatically
+- Phase 2 study document lifecycle controls are now live in the study shell:
+  - unsigned documents can now be edited in place for name, path, and category corrections
+  - signed documents are explicitly locked from in-place edits and steer users into a `Next version` flow instead
+  - any manageable document can now branch into a new version record directly from the study document card without mutating signed history
+  - document lifecycle actions record `study_document.updated` and `study_document.version_created` audit events and refresh the study/admin oversight views
+- Phase 2 study document lineage is now visible in the study shell:
+  - the document register now supports `Latest versions`, `All versions`, and `History only` filters instead of treating every record as a flat peer
+  - each document card now shows whether it is the current or superseded version, the family size, latest version number, and inline version history badges
+  - the `Next version` flow now preserves document-family lineage by keeping the existing name/category stable server-side instead of allowing accidental family splits during versioning
+  - the study-document signature certificate hash no longer derives from the re-entered password; password is used only for re-authentication
 - Gate/build verification was rerun on March 14, 2026 after the auth recovery slice:
   - `pnpm typecheck`
   - `pnpm lint`
@@ -228,7 +238,7 @@ Keep this file compact:
 ## Exact Next Steps
 
 1. Continue Phase 2 from the admin workspace:
-   - continue from the new governance, site-access, auth-recovery, study-oversight, document-register, signature-oversight, study-document, and study-signature controls and choose the next bounded Phase 2 feature, such as document update/version controls or broader signature workflows on other record types
+   - continue from the new governance, site-access, auth-recovery, study-oversight, document-register, signature-oversight, study-document, study-signature, document-lifecycle, and document-lineage controls and choose the next bounded Phase 2 feature, such as broader signature workflows on other record types or richer document operations beyond metadata/versioning
 2. Regenerate `types/database.types.ts` from the live schema when convenient.
 3. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
 4. Decide whether to keep or replace the `postbuild` server-chunk workaround after investigating the underlying Next.js runtime path mismatch.

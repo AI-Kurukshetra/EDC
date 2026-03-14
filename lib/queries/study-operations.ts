@@ -741,11 +741,33 @@ export const getStudyDocumentsWorkspace = cache(
       signaturesByDocumentId.set(signature.entity_id, existing)
     }
 
+    const documentsByFamilyKey = new Map<string, z.infer<typeof StudyDocumentRowSchema>[]>()
+
+    for (const document of data.documents) {
+      const familyKey = `${document.name}::${document.category}`
+      const existing = documentsByFamilyKey.get(familyKey) ?? []
+      existing.push(document)
+      documentsByFamilyKey.set(familyKey, existing)
+    }
+
     const documents: StudyOperationsDocument[] = data.documents.map((document) => {
       const uploader = document.uploaded_by ? profileById.get(document.uploaded_by) : null
       const documentSignatures = signaturesByDocumentId.get(document.id) ?? []
       const latestSignature = documentSignatures[0] ?? null
       const latestSigner = latestSignature ? profileById.get(latestSignature.signed_by) : null
+      const familyKey = `${document.name}::${document.category}`
+      const familyDocuments = [...(documentsByFamilyKey.get(familyKey) ?? [])].sort(
+        (left, right) =>
+          right.version - left.version || right.created_at.localeCompare(left.created_at),
+      )
+      const latestVersion = familyDocuments[0]?.version ?? document.version
+      const versionHistory = familyDocuments.map((familyDocument) => ({
+        id: familyDocument.id,
+        version: familyDocument.version,
+        createdAt: familyDocument.created_at,
+        signatureCount: (signaturesByDocumentId.get(familyDocument.id) ?? []).length,
+        isLatestVersion: familyDocument.version === latestVersion,
+      }))
 
       return {
         id: document.id,
@@ -753,6 +775,9 @@ export const getStudyDocumentsWorkspace = cache(
         filePath: document.file_path,
         version: document.version,
         category: document.category,
+        isLatestVersion: document.version === latestVersion,
+        latestVersion,
+        familyVersionCount: familyDocuments.length,
         uploadedByName: uploader?.full_name ?? null,
         uploadedByEmail: uploader?.email ?? null,
         createdAt: document.created_at,
@@ -761,6 +786,7 @@ export const getStudyDocumentsWorkspace = cache(
         latestSignedByName: latestSigner?.full_name ?? null,
         latestSignedByEmail: latestSigner?.email ?? null,
         latestSignatureMeaning: latestSignature?.signature_meaning ?? null,
+        versionHistory,
       }
     })
 

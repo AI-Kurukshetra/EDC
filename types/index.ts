@@ -325,12 +325,23 @@ export type StudyOperationsAudit = {
   createdAt: string
 }
 
+export type StudyDocumentVersionSummary = {
+  id: string
+  version: number
+  createdAt: string
+  signatureCount: number
+  isLatestVersion: boolean
+}
+
 export type StudyOperationsDocument = {
   id: string
   name: string
   filePath: string
   version: number
   category: StudyDocumentCategory
+  isLatestVersion: boolean
+  latestVersion: number
+  familyVersionCount: number
   uploadedByName: string | null
   uploadedByEmail: string | null
   createdAt: string
@@ -339,6 +350,7 @@ export type StudyOperationsDocument = {
   latestSignedByName: string | null
   latestSignedByEmail: string | null
   latestSignatureMeaning: string | null
+  versionHistory: StudyDocumentVersionSummary[]
 }
 
 export type StudyOperationsDocumentsWorkspace = {
