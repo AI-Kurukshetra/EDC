@@ -1,5 +1,6 @@
 import { StudyFormsWorkspace } from '@/components/forms/study-forms-workspace'
 import { getStudyFormTemplates } from '@/lib/queries/form-templates'
+import type { StudyFormTemplate } from '@/types'
 
 type StudyFormsPageProps = {
   params: Promise<{ studyId: string }>
@@ -8,7 +9,16 @@ type StudyFormsPageProps = {
 /** Renders the study-level CRF builder workspace backed by stored form templates. */
 export default async function StudyFormsPage({ params }: StudyFormsPageProps) {
   const { studyId } = await params
-  const templates = await getStudyFormTemplates(studyId)
+  let templates: StudyFormTemplate[] = []
+
+  try {
+    templates = await getStudyFormTemplates(studyId)
+  } catch (error) {
+    console.error('Failed to load study form templates. Falling back to empty template set.', {
+      studyId,
+      error,
+    })
+  }
 
   return <StudyFormsWorkspace studyId={studyId} templates={templates} />
 }
