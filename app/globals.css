@@ -73,3 +73,45 @@ textarea {
   background-position: center;
   background-size: 28px 28px;
 }
+
+.glass-panel {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.68));
+  backdrop-filter: blur(8px);
+}
+
+.hero-float {
+  animation: heroFloat 8s ease-in-out infinite;
+}
+
+.hero-glow-pulse {
+  animation: heroGlowPulse 7.5s ease-in-out infinite;
+}
+
+@keyframes heroFloat {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes heroGlowPulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-float,
+  .hero-glow-pulse {
+    animation: none;
+  }
+}
