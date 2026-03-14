@@ -62,7 +62,15 @@ function getDefaultVisitNumber(template: StudyFormTemplate | null, entries: Stud
 
 /** Coordinates subject selection, published form selection, and the live eCRF data-entry editor. */
 export function StudyDataWorkspace({ studyId, data }: StudyDataWorkspaceProps) {
-  const { subjects, templates, queries, entries: initialEntries } = data
+  const {
+    subjects,
+    templates,
+    queries,
+    entries: initialEntries,
+    canSignEntries,
+    viewerName,
+    viewerEmail,
+  } = data
   const [entries, setEntries] = useState(initialEntries)
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(subjects[0]?.id ?? null)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
@@ -356,6 +364,7 @@ export function StudyDataWorkspace({ studyId, data }: StudyDataWorkspaceProps) {
 
       {selectedSubject && selectedTemplate ? (
         <CrfDataEntryEditor
+          canSignEntries={canSignEntries}
           studyId={studyId}
           subject={selectedSubject}
           template={selectedTemplate}
@@ -363,6 +372,8 @@ export function StudyDataWorkspace({ studyId, data }: StudyDataWorkspaceProps) {
           entries={matchingEntries}
           queries={currentQueries}
           visitNumber={visitNumber}
+          viewerEmail={viewerEmail}
+          viewerName={viewerName}
           onVisitNumberChange={setVisitNumber}
           onCreateNextVisit={handleCreateNextVisit}
           onEntrySaved={handleEntrySaved}

@@ -2,15 +2,18 @@ import { cache } from 'react'
 
 import { z } from 'zod'
 
+import { getCurrentSessionProfile } from '@/lib/queries/account'
 import { getStudyFormTemplates } from '@/lib/queries/form-templates'
 import { getServerSupabase } from '@/lib/supabase/server'
 import { normalizeCrfEntryRecord } from '@/lib/utils/crf-entry'
 import { PostgresUuidSchema } from '@/lib/validations/identifiers'
 import {
   DATA_ENTRY_STATUSES,
+  DATA_ENTRY_SIGNATURE_MEANINGS,
   QUERY_PRIORITIES,
   QUERY_STATUSES,
   SUBJECT_STATUSES,
+  USER_ROLES,
   type StudyDataWorkspace,
 } from '@/types'
 
@@ -59,11 +62,27 @@ const QueryRowSchema = z.object({
   updated_at: z.string(),
 })
 
+const SignatureRowSchema = z.object({
+  id: PostgresUuidSchema,
+  entity_id: PostgresUuidSchema,
+  signed_by: PostgresUuidSchema,
+  signature_meaning: z.enum(DATA_ENTRY_SIGNATURE_MEANINGS),
+  signed_at: z.string(),
+})
+
+const ProfileRowSchema = z.object({
+  id: PostgresUuidSchema,
+  full_name: z.string(),
+  email: z.email(),
+  role: z.enum(USER_ROLES),
+})
+
 /** Loads the subject roster, published CRFs, saved entries, and field queries for study data entry. */
 export const getStudyDataWorkspace = cache(async (studyId: string): Promise<StudyDataWorkspace> => {
   const supabase = await getServerSupabase()
 
-  const [templates, subjectsResult, sitesResult] = await Promise.all([
+  const [viewer, templates, subjectsResult, sitesResult] = await Promise.all([
+    getCurrentSessionProfile(),
     getStudyFormTemplates(studyId),
     supabase
       .from('subjects')
@@ -109,6 +128,14 @@ export const getStudyDataWorkspace = cache(async (studyId: string): Promise<Stud
 
   if (subjects.length === 0 || publishedTemplates.length === 0) {
     return {
+      canSignEntries:
+        viewer?.isActive === true &&
+        ['super_admin', 'investigator', 'coordinator', 'monitor', 'data_manager'].includes(
+          viewer.role,
+        ),
+      viewerName: viewer?.fullName ?? null,
+      viewerEmail: viewer?.email ?? null,
+      viewerRole: viewer?.role ?? null,
       subjects,
       templates: publishedTemplates,
       entries: [],
@@ -147,12 +174,84 @@ export const getStudyDataWorkspace = cache(async (studyId: string): Promise<Stud
     throw new Error(queriesResult.error.message)
   }
 
+  const parsedEntries = DataEntryRowSchema.array().parse(entriesResult.data)
+  const entryIds = parsedEntries.map((entry) => entry.id)
+  const profileIds = new Set<string>()
+
+  for (const entry of parsedEntries) {
+    if (entry.submitted_by) {
+      profileIds.add(entry.submitted_by)
+    }
+
+    if (entry.locked_by) {
+      profileIds.add(entry.locked_by)
+    }
+  }
+
+  const signaturesResult =
+    entryIds.length > 0
+      ? await supabase
+          .from('signatures')
+          .select('id, entity_id, signed_by, signature_meaning, signed_at')
+          .eq('entity_type', 'data_entry')
+          .in('entity_id', entryIds)
+          .order('signed_at', { ascending: false })
+      : { data: [], error: null }
+
+  if (signaturesResult.error) {
+    throw new Error(signaturesResult.error.message)
+  }
+
+  const signatures = SignatureRowSchema.array().parse(signaturesResult.data)
+
+  for (const signature of signatures) {
+    profileIds.add(signature.signed_by)
+  }
+
+  const profilesResult =
+    profileIds.size > 0
+      ? await supabase
+          .from('profiles')
+          .select('id, full_name, email, role')
+          .in('id', [...profileIds])
+      : { data: [], error: null }
+
+  if (profilesResult.error) {
+    throw new Error(profilesResult.error.message)
+  }
+
+  const profileById = new Map(
+    ProfileRowSchema.array()
+      .parse(profilesResult.data)
+      .map((profile) => [profile.id, profile]),
+  )
+  const signaturesByEntryId = new Map<string, z.infer<typeof SignatureRowSchema>[]>()
+
+  for (const signature of signatures) {
+    const existing = signaturesByEntryId.get(signature.entity_id) ?? []
+    existing.push(signature)
+    signaturesByEntryId.set(signature.entity_id, existing)
+  }
+
   return {
+    canSignEntries:
+      viewer?.isActive === true &&
+      ['super_admin', 'investigator', 'coordinator', 'monitor', 'data_manager'].includes(
+        viewer.role,
+      ),
+    viewerName: viewer?.fullName ?? null,
+    viewerEmail: viewer?.email ?? null,
+    viewerRole: viewer?.role ?? null,
     subjects,
     templates: publishedTemplates,
-    entries: DataEntryRowSchema.array()
-      .parse(entriesResult.data)
-      .map((entry) => ({
+    entries: parsedEntries.map((entry) => {
+      const submittedBy = entry.submitted_by ? profileById.get(entry.submitted_by) : null
+      const lockedBy = entry.locked_by ? profileById.get(entry.locked_by) : null
+      const entrySignatures = signaturesByEntryId.get(entry.id) ?? []
+      const latestSignature = entrySignatures[0] ?? null
+      const latestSigner = latestSignature ? profileById.get(latestSignature.signed_by) : null
+
+      return {
         id: entry.id,
         subjectId: entry.subject_id,
         formTemplateId: entry.form_template_id,
@@ -164,12 +263,22 @@ export const getStudyDataWorkspace = cache(async (studyId: string): Promise<Stud
         ),
         status: entry.status,
         submittedBy: entry.submitted_by,
+        submittedByName: submittedBy?.full_name ?? null,
+        submittedByEmail: submittedBy?.email ?? null,
         submittedAt: entry.submitted_at,
         lockedBy: entry.locked_by,
+        lockedByName: lockedBy?.full_name ?? null,
+        lockedByEmail: lockedBy?.email ?? null,
         lockedAt: entry.locked_at,
+        signatureCount: entrySignatures.length,
+        latestSignedAt: latestSignature?.signed_at ?? null,
+        latestSignedByName: latestSigner?.full_name ?? null,
+        latestSignedByEmail: latestSigner?.email ?? null,
+        latestSignatureMeaning: latestSignature?.signature_meaning ?? null,
         createdAt: entry.created_at,
         updatedAt: entry.updated_at,
-      })),
+      }
+    }),
     queries: QueryRowSchema.array()
       .parse(queriesResult.data)
       .map((query) => ({

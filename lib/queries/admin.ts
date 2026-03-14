@@ -36,6 +36,20 @@ const StudyRowSchema = z.object({
 const SubjectRowSchema = z.object({
   id: PostgresUuidSchema,
   study_id: PostgresUuidSchema,
+  subject_id: z.string(),
+})
+
+const DataEntryRowSchema = z.object({
+  id: PostgresUuidSchema,
+  subject_id: PostgresUuidSchema,
+  form_template_id: PostgresUuidSchema,
+  visit_number: z.number().int().positive(),
+  status: z.enum(['draft', 'submitted', 'locked', 'sdv_required', 'sdv_complete']),
+})
+
+const FormTemplateRowSchema = z.object({
+  id: PostgresUuidSchema,
+  name: z.string(),
 })
 
 const QueryRowSchema = z.object({
@@ -117,8 +131,10 @@ const SignatureRowSchema = z.object({
 function resolveAdminSignatureEntityContext(
   signature: z.infer<typeof SignatureRowSchema>,
   options: {
+    dataEntriesById: Map<string, z.infer<typeof DataEntryRowSchema>>
     documentsById: Map<string, z.infer<typeof StudyDocumentRowSchema>>
     exportsById: Map<string, z.infer<typeof ExportRowSchema>>
+    formTemplatesById: Map<string, z.infer<typeof FormTemplateRowSchema>>
     profileById: Map<string, z.infer<typeof ProfileRowSchema>>
     siteById: Map<string, z.infer<typeof SiteRowSchema>>
     siteUsersById: Map<string, z.infer<typeof SiteUserRowSchema>>
@@ -158,6 +174,24 @@ function resolveAdminSignatureEntityContext(
     }
   }
 
+  if (signature.entity_type === 'data_entry') {
+    const dataEntry = options.dataEntriesById.get(signature.entity_id)
+    const subject = dataEntry ? options.subjectById.get(dataEntry.subject_id) : null
+    const study = subject ? options.studyById.get(subject.study_id) : null
+    const template = dataEntry ? options.formTemplatesById.get(dataEntry.form_template_id) : null
+
+      return {
+        entityLabel:
+          dataEntry && subject
+            ? `${subject.subject_id} • Visit ${String(dataEntry.visit_number)}`
+            : null,
+        entityContext:
+          study && template && dataEntry
+            ? `${study.protocol_number} • ${template.name} • ${dataEntry.status}`
+            : null,
+      }
+    }
+
   if (signature.entity_type === 'profile') {
     const profile = options.profileById.get(signature.entity_id)
 
@@ -183,7 +217,7 @@ function resolveAdminSignatureEntityContext(
     const study = subject ? options.studyById.get(subject.study_id) : null
 
     return {
-      entityLabel: subject?.id ?? null,
+      entityLabel: subject?.subject_id ?? null,
       entityContext: study?.protocol_number ?? null,
     }
   }
@@ -219,6 +253,8 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
     recentNotificationsResult,
     exportsResult,
     documentsResult,
+    dataEntriesResult,
+    formTemplatesResult,
     signaturesResult,
   ] = await Promise.all([
     supabase
@@ -226,7 +262,7 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
       .select('id, full_name, email, role, is_active, created_at')
       .order('created_at', { ascending: false }),
     supabase.from('studies').select('id, title, protocol_number, sponsor_id, status'),
-    supabase.from('subjects').select('id, study_id'),
+    supabase.from('subjects').select('id, study_id, subject_id'),
     supabase.from('queries').select('id, subject_id, status, priority'),
     supabase.from('site_users').select('id, user_id, site_id, role'),
     supabase.from('sites').select('id, study_id, name, site_code'),
@@ -247,6 +283,8 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
       .select('id, study_id, name, file_path, version, uploaded_by, category, created_at')
       .order('created_at', { ascending: false })
       .limit(20),
+    supabase.from('data_entries').select('id, subject_id, form_template_id, visit_number, status'),
+    supabase.from('form_templates').select('id, name'),
     supabase
       .from('signatures')
       .select(
@@ -300,6 +338,14 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
     throw new Error(documentsResult.error.message)
   }
 
+  if (dataEntriesResult.error) {
+    throw new Error(dataEntriesResult.error.message)
+  }
+
+  if (formTemplatesResult.error) {
+    throw new Error(formTemplatesResult.error.message)
+  }
+
   if (signaturesResult.error) {
     throw new Error(signaturesResult.error.message)
   }
@@ -317,14 +363,18 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
   )
   const exports = ExportRowSchema.array().parse(exportsResult.data)
   const documents = StudyDocumentRowSchema.array().parse(documentsResult.data)
+  const dataEntries = DataEntryRowSchema.array().parse(dataEntriesResult.data)
+  const formTemplates = FormTemplateRowSchema.array().parse(formTemplatesResult.data)
   const signatures = SignatureRowSchema.array().parse(signaturesResult.data)
 
   const siteById = new Map(sites.map((site) => [site.id, site]))
   const studyById = new Map(studies.map((study) => [study.id, study]))
   const subjectById = new Map(subjects.map((subject) => [subject.id, subject]))
   const profileById = new Map(profiles.map((profile) => [profile.id, profile]))
+  const dataEntriesById = new Map(dataEntries.map((dataEntry) => [dataEntry.id, dataEntry]))
   const documentsById = new Map(documents.map((document) => [document.id, document]))
   const exportsById = new Map(exports.map((exportRow) => [exportRow.id, exportRow]))
+  const formTemplatesById = new Map(formTemplates.map((template) => [template.id, template]))
   const siteUsersById = new Map(siteUsers.map((siteUser) => [siteUser.id, siteUser]))
   const siteAssignmentsByUserId = new Map<string, AdminUserSiteAssignment[]>()
   const sponsoredStudyCountByUserId = new Map<string, number>()
@@ -547,8 +597,10 @@ export const getAdminWorkspace = cache(async (): Promise<AdminWorkspace> => {
     signatures: signatures.flatMap((signature) => {
       const signer = profileById.get(signature.signed_by)
       const entity = resolveAdminSignatureEntityContext(signature, {
+        dataEntriesById,
         documentsById,
         exportsById,
+        formTemplatesById,
         profileById,
         siteById,
         siteUsersById,

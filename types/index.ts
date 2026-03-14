@@ -117,6 +117,14 @@ export const STUDY_SIGNATURE_MEANINGS = [
 
 export type StudySignatureMeaning = (typeof STUDY_SIGNATURE_MEANINGS)[number]
 
+export const DATA_ENTRY_SIGNATURE_MEANINGS = [
+  'I attest this eCRF entry is complete and source-verified.',
+  'I approve this eCRF entry for monitoring review.',
+  'I certify this eCRF entry is accurate to the best of my knowledge.',
+] as const
+
+export type DataEntrySignatureMeaning = (typeof DATA_ENTRY_SIGNATURE_MEANINGS)[number]
+
 export const EXPORT_SIGNATURE_MEANINGS = [
   'I certify this export is being requested for authorized study use.',
   'I acknowledge responsibility for handling this export securely.',
@@ -241,9 +249,18 @@ export type StudyDataEntry = {
   data: CrfEntryRecord
   status: DataEntryStatus
   submittedBy: string | null
+  submittedByName: string | null
+  submittedByEmail: string | null
   submittedAt: string | null
   lockedBy: string | null
+  lockedByName: string | null
+  lockedByEmail: string | null
   lockedAt: string | null
+  signatureCount: number
+  latestSignedAt: string | null
+  latestSignedByName: string | null
+  latestSignedByEmail: string | null
+  latestSignatureMeaning: DataEntrySignatureMeaning | null
   createdAt: string
   updatedAt: string
 }
@@ -262,6 +279,10 @@ export type StudyDataQuery = {
 }
 
 export type StudyDataWorkspace = {
+  canSignEntries: boolean
+  viewerName: string | null
+  viewerEmail: string | null
+  viewerRole: UserRole | null
   subjects: StudySubjectSummary[]
   templates: StudyFormTemplate[]
   entries: StudyDataEntry[]
@@ -281,6 +302,7 @@ export type StudyOperationsSubject = StudySubjectSummary & {
 
 export type StudyOperationsQuery = {
   id: string
+  dataEntryId: string
   subjectId: string
   subjectLabel: string
   siteName: string
@@ -290,14 +312,45 @@ export type StudyOperationsQuery = {
   queryText: string
   status: QueryStatus
   priority: QueryPriority
+  raisedById: string | null
   raisedByName: string | null
   raisedByEmail: string | null
+  assignedToId: string | null
   assignedToName: string | null
   assignedToEmail: string | null
   responseCount: number
   lastResponseAt: string | null
+  responses: StudyQueryResponseSummary[]
+  canManage: boolean
   createdAt: string
   updatedAt: string
+}
+
+export type StudyQueryResponseSummary = {
+  id: string
+  responseText: string
+  actionTaken: string | null
+  respondedById: string
+  respondedByName: string | null
+  respondedByEmail: string | null
+  createdAt: string
+}
+
+export type StudyQueryAssigneeOption = {
+  id: string
+  fullName: string
+  email: string
+  role: UserRole
+}
+
+export type StudyOperationsQueriesWorkspace = {
+  studyId: string
+  canManageQueries: boolean
+  viewerName: string | null
+  viewerEmail: string | null
+  viewerRole: UserRole | null
+  assigneeOptions: StudyQueryAssigneeOption[]
+  queries: StudyOperationsQuery[]
 }
 
 export type StudyOperationsSite = {

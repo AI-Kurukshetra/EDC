@@ -227,6 +227,14 @@ Keep this file compact:
   - `/studies/[studyId]` now renders a real overview workspace with readiness context plus a study-level electronic signature panel
   - sponsor, monitor, data-manager, and super-admin users can now sign the immutable `study` record after password re-authentication
   - study-level signatures show recent signer history and certificate hashes on the overview page and automatically flow into study audit and admin signature oversight
+- Phase 2 data-entry sign-off is now live in the eCRF workspace:
+  - submitted `data_entry` records now show signature readiness, signer context, and lock state directly in the CRF editor
+  - investigators, coordinators, monitors, data managers, and super admins can now capture an electronic signature for a submitted eCRF entry after password re-authentication
+  - successful entry signatures insert immutable `data_entry` signature records, lock the entry from further edits, emit `signature.captured` audit events, and now resolve with human-readable context in admin signature oversight
+- Phase 2 study query triage is now live in the study shell:
+  - `/studies/[studyId]/queries` is no longer read-only; it now supports inline response capture, status transitions, and assignee changes from the study queue
+  - query cards now show threaded response history with responder identity and timestamps, plus actionable/view-only state for the current viewer
+  - query updates now insert `query_responses` records when applicable, update query status/ownership, notify assignees or original raisers when relevant, and write `query.responded` / `query.updated` audit events
 - Gate/build verification was rerun on March 14, 2026 after the auth recovery slice:
   - `pnpm typecheck`
   - `pnpm lint`
@@ -246,7 +254,7 @@ Keep this file compact:
 ## Exact Next Steps
 
 1. Continue Phase 2 from the admin workspace:
-   - continue from the new governance, site-access, auth-recovery, study-oversight, document-register, signature-oversight, study-document, export-signature, study-signature, document-lifecycle, document-lineage, and study-level sign-off controls and choose the next bounded Phase 2 feature, such as broader signature workflows on other record types or richer document operations beyond metadata/versioning
+   - continue from the new governance, site-access, auth-recovery, study-oversight, document-register, signature-oversight, study-document, export-signature, study-signature, data-entry-signature, study-query-triage, document-lifecycle, document-lineage, and study-level sign-off controls and choose the next bounded Phase 2 feature, such as broader signature workflows on other record types or richer document operations beyond metadata/versioning
 2. Regenerate `types/database.types.ts` from the live schema when convenient.
 3. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
 4. Decide whether to keep or replace the `postbuild` server-chunk workaround after investigating the underlying Next.js runtime path mismatch.

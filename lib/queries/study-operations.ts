@@ -19,6 +19,7 @@ import {
   type StudyOperationsExport,
   type StudyOperationsExportWorkspace,
   type StudyOperationsQuery,
+  type StudyOperationsQueriesWorkspace,
   type StudyOperationsSite,
   type StudyOperationsSubject,
   type StudyOperationsUser,
@@ -109,6 +110,8 @@ const QueryResponseRowSchema = z.object({
   id: PostgresUuidSchema,
   query_id: PostgresUuidSchema,
   responded_by: PostgresUuidSchema,
+  response_text: z.string(),
+  action_taken: z.string().nullable(),
   created_at: z.string(),
 })
 
@@ -315,7 +318,7 @@ const getStudyOperationsBase = cache(async (studyId: string): Promise<StudyOpera
     queryIds.length > 0
       ? await supabase
           .from('query_responses')
-          .select('id, query_id, responded_by, created_at')
+          .select('id, query_id, responded_by, response_text, action_taken, created_at')
           .in('query_id', queryIds)
           .order('created_at', { ascending: false })
       : { data: [], error: null }
@@ -478,17 +481,24 @@ export const getStudySubjectsWorkspace = cache(
 )
 
 export const getStudyQueriesWorkspace = cache(
-  async (studyId: string): Promise<StudyOperationsQuery[]> => {
-    const data = await getStudyOperationsBase(studyId)
+  async (studyId: string): Promise<StudyOperationsQueriesWorkspace> => {
+    const [data, viewer] = await Promise.all([
+      getStudyOperationsBase(studyId),
+      getCurrentSessionProfile(),
+    ])
     const { entryById, profileById, siteById, subjectById, templateById } = buildLookupMaps(data)
 
     const responseStatsByQueryId = new Map<
       string,
       { count: number; lastResponseAt: string | null }
     >()
+    const responsesByQueryId = new Map<string, z.infer<typeof QueryResponseRowSchema>[]>()
 
     for (const response of data.queryResponses) {
       const existing = responseStatsByQueryId.get(response.query_id)
+      const existingResponses = responsesByQueryId.get(response.query_id) ?? []
+      existingResponses.push(response)
+      responsesByQueryId.set(response.query_id, existingResponses)
 
       if (!existing) {
         responseStatsByQueryId.set(response.query_id, {
@@ -507,7 +517,7 @@ export const getStudyQueriesWorkspace = cache(
       })
     }
 
-    return data.queries.map((query) => {
+    const queries: StudyOperationsQuery[] = data.queries.map((query) => {
       const subject = subjectById.get(query.subject_id)
       const site = subject ? siteById.get(subject.site_id) : null
       const entry = entryById.get(query.data_entry_id)
@@ -515,9 +525,23 @@ export const getStudyQueriesWorkspace = cache(
       const raisedBy = query.raised_by ? profileById.get(query.raised_by) : null
       const assignedTo = query.assigned_to ? profileById.get(query.assigned_to) : null
       const responseStats = responseStatsByQueryId.get(query.id)
+      const responses = (responsesByQueryId.get(query.id) ?? []).map((response) => {
+        const responder = profileById.get(response.responded_by)
+
+        return {
+          id: response.id,
+          responseText: response.response_text,
+          actionTaken: response.action_taken,
+          respondedById: response.responded_by,
+          respondedByName: responder?.full_name ?? null,
+          respondedByEmail: responder?.email ?? null,
+          createdAt: response.created_at,
+        }
+      })
 
       return {
         id: query.id,
+        dataEntryId: query.data_entry_id,
         subjectId: query.subject_id,
         subjectLabel: subject?.subject_id ?? 'Unknown subject',
         siteName: site?.name ?? 'Unknown site',
@@ -527,16 +551,50 @@ export const getStudyQueriesWorkspace = cache(
         queryText: query.query_text,
         status: query.status,
         priority: query.priority,
+        raisedById: query.raised_by,
         raisedByName: raisedBy?.full_name ?? null,
         raisedByEmail: raisedBy?.email ?? null,
+        assignedToId: query.assigned_to,
         assignedToName: assignedTo?.full_name ?? null,
         assignedToEmail: assignedTo?.email ?? null,
         responseCount: responseStats?.count ?? 0,
         lastResponseAt: responseStats?.lastResponseAt ?? null,
+        responses,
+        canManage:
+          viewer?.isActive === true &&
+          (viewer.role === 'super_admin' ||
+            viewer.role === 'sponsor' ||
+            viewer.role === 'data_manager' ||
+            viewer.role === 'monitor' ||
+            viewer.role === 'investigator' ||
+            viewer.role === 'coordinator' ||
+            query.assigned_to === viewer.id),
         createdAt: query.created_at,
         updatedAt: query.updated_at,
       }
     })
+
+    return {
+      studyId: data.study.id,
+      canManageQueries:
+        viewer?.isActive === true &&
+        ['super_admin', 'sponsor', 'data_manager', 'monitor', 'investigator', 'coordinator'].includes(
+          viewer.role,
+        ),
+      viewerName: viewer?.fullName ?? null,
+      viewerEmail: viewer?.email ?? null,
+      viewerRole: viewer?.role ?? null,
+      assigneeOptions: data.profiles
+        .filter((profile) => profile.is_active)
+        .map((profile) => ({
+          id: profile.id,
+          fullName: profile.full_name,
+          email: profile.email,
+          role: profile.role,
+        }))
+        .sort((left, right) => left.fullName.localeCompare(right.fullName)),
+      queries,
+    }
   },
 )
 

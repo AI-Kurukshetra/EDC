@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CalendarDays, Plus, Save, Send } from 'lucide-react'
+import { CalendarDays, Plus, Save, Send, ShieldCheck } from 'lucide-react'
 import { type Resolver, useForm, useFormContext } from 'react-hook-form'
 import { toast } from 'react-hot-toast'
 
@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { saveStudyDataEntry } from '@/lib/actions/data-entries'
+import { signStudyDataEntry } from '@/lib/actions/study-signatures'
 import { cn } from '@/lib/utils/cn'
 import {
   buildCrfEntrySchema,
@@ -36,11 +37,13 @@ import {
 import type {
   CrfEntryRecord,
   CrfField,
+  DataEntrySignatureMeaning,
   StudyDataEntry,
   StudyDataQuery,
   StudyFormTemplate,
   StudySubjectSummary,
 } from '@/types'
+import { DATA_ENTRY_SIGNATURE_MEANINGS } from '@/types'
 
 const SELECT_CLASS_NAME =
   'flex h-11 w-full rounded-xl border border-[color:var(--color-gray-200)] bg-white px-3 py-2 text-sm text-[color:var(--color-gray-900)] shadow-sm outline-none focus:border-[color:var(--color-navy-700)] focus:ring-2 focus:ring-[color:var(--color-navy-100)]'
@@ -78,6 +81,7 @@ const QUERY_PRIORITY_VARIANTS = {
 type SaveMode = 'draft' | 'submit'
 
 type CrfDataEntryEditorProps = {
+  canSignEntries: boolean
   studyId: string
   subject: StudySubjectSummary
   template: StudyFormTemplate
@@ -85,6 +89,8 @@ type CrfDataEntryEditorProps = {
   entries: StudyDataEntry[]
   queries: StudyDataQuery[]
   visitNumber: number
+  viewerEmail: string | null
+  viewerName: string | null
   onVisitNumberChange: (visitNumber: number) => void
   onCreateNextVisit: () => void
   onEntrySaved: (entry: StudyDataEntry) => void
@@ -115,6 +121,14 @@ function formatTimestampLabel(value: string | null) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
+}
+
+function formatLockTimestampLabel(value: string | null) {
+  if (!value) {
+    return 'Not yet locked'
+  }
+
+  return formatTimestampLabel(value)
 }
 
 function getVisitScheduleLabel(template: StudyFormTemplate) {
@@ -357,6 +371,7 @@ function CrfFieldEditor({ field, queries, disabled }: CrfFieldEditorProps) {
 
 /** Renders a live eCRF editor for one subject/form/visit combination, including draft save and submission. */
 export function CrfDataEntryEditor({
+  canSignEntries,
   studyId,
   subject,
   template,
@@ -364,6 +379,8 @@ export function CrfDataEntryEditor({
   entries,
   queries,
   visitNumber,
+  viewerEmail,
+  viewerName,
   onVisitNumberChange,
   onCreateNextVisit,
   onEntrySaved,
@@ -372,6 +389,14 @@ export function CrfDataEntryEditor({
   const submitModeRef = useRef<SaveMode>('draft')
   const [visitDate, setVisitDate] = useState(entry?.visitDate ?? '')
   const [isSaving, startSavingTransition] = useTransition()
+  const [isSigning, startSigningTransition] = useTransition()
+  const [signatureMeaning, setSignatureMeaning] = useState<DataEntrySignatureMeaning>(
+    DATA_ENTRY_SIGNATURE_MEANINGS[0],
+  )
+  const [signaturePassword, setSignaturePassword] = useState('')
+  const [signaturePreviewAt, setSignaturePreviewAt] = useState<string | null>(
+    new Date().toISOString(),
+  )
 
   const form = useForm<CrfEntryRecord>({
     resolver: zodResolver(buildCrfEntrySchema(template.schema.fields)) as Resolver<CrfEntryRecord>,
@@ -403,6 +428,12 @@ export function CrfDataEntryEditor({
   const openQueryCount = entryQueries.filter((query) => query.status === 'open').length
   const isFormReadOnly = Boolean(entry && isReadOnlyDataEntryStatus(entry.status))
   const isRepeatable = Boolean(template.visitSchedule?.repeatable)
+  const canCaptureSignature = Boolean(
+    entry &&
+      canSignEntries &&
+      (entry.status === 'submitted' || entry.status === 'sdv_required') &&
+      entry.signatureCount === 0,
+  )
 
   function handleStartSave(mode: SaveMode) {
     submitModeRef.current = mode
@@ -450,6 +481,38 @@ export function CrfDataEntryEditor({
   function handleFormSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault()
     void form.handleSubmit(handleSubmit)(event)
+  }
+
+  function handleSignEntry() {
+    if (!entry) {
+      return
+    }
+
+    startSigningTransition(() => {
+      void (async () => {
+        const result = await signStudyDataEntry({
+          studyId,
+          entryId: entry.id,
+          signatureMeaning,
+          password: signaturePassword,
+        })
+
+        if (!result.success) {
+          toast.error(
+            typeof result.error === 'string'
+              ? result.error
+              : 'Unable to capture the entry signature.',
+          )
+          return
+        }
+
+        onEntrySaved(result.data.entry)
+        setSignaturePassword('')
+        setSignaturePreviewAt(new Date().toISOString())
+        toast.success('Data entry signed and locked.')
+        router.refresh()
+      })()
+    })
   }
 
   return (
@@ -511,6 +574,44 @@ export function CrfDataEntryEditor({
           </div>
         </div>
 
+        {entry ? (
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-3">
+              <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                Submitted by
+              </p>
+              <p className="mt-2 font-medium text-[color:var(--color-gray-900)]">
+                {entry.submittedByName ?? 'Unknown user'}
+              </p>
+              <p className="mt-1 text-xs text-[color:var(--color-gray-600)]">
+                {entry.submittedByEmail ?? 'No direct email record'}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-3">
+              <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                Signature state
+              </p>
+              <p className="mt-2 font-medium text-[color:var(--color-gray-900)]">
+                {entry.signatureCount > 0 ? 'Signed' : 'Awaiting sign-off'}
+              </p>
+              <p className="mt-1 text-xs text-[color:var(--color-gray-600)]">
+                {entry.latestSignatureMeaning ?? 'No certification meaning recorded yet'}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-3">
+              <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                Locked at
+              </p>
+                <p className="mt-2 font-medium text-[color:var(--color-gray-900)]">
+                  {formatLockTimestampLabel(entry.lockedAt)}
+                </p>
+              <p className="mt-1 text-xs text-[color:var(--color-gray-600)]">
+                {entry.lockedByName ?? 'No locking signer recorded'}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         {isFormReadOnly ? (
           <div className="rounded-2xl border border-[color:var(--color-danger-100)] bg-[color:var(--color-danger-50)] px-4 py-3 text-sm text-[color:var(--color-danger-700)]">
             This data entry is locked. It can be reviewed here, but responses can no longer be
@@ -521,6 +622,95 @@ export function CrfDataEntryEditor({
         {template.schema.description ? (
           <div className="rounded-2xl border border-[color:var(--color-navy-100)] bg-[color:var(--color-navy-50)] px-4 py-3 text-sm leading-6 text-[color:var(--color-gray-700)]">
             {template.schema.description}
+          </div>
+        ) : null}
+
+        {entry ? (
+          <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[#fefefe] px-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-medium text-[color:var(--color-gray-900)]">
+                  Electronic sign-off
+                </p>
+                <p className="mt-2 text-sm leading-6 text-[color:var(--color-gray-600)]">
+                  Capture an immutable signature for this submitted eCRF entry. A successful
+                  sign-off locks the entry from further edits.
+                </p>
+              </div>
+              <Badge variant={canCaptureSignature ? 'success' : 'muted'}>
+                {(() => {
+                  if (canCaptureSignature) {
+                    return 'ready to sign'
+                  }
+
+                  return entry.signatureCount > 0 ? 'signed' : 'not ready'
+                })()}
+              </Badge>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+                <span className="font-medium">Signature meaning</span>
+                <select
+                  className={SELECT_CLASS_NAME}
+                  disabled={isSigning || entry.signatureCount > 0}
+                  value={signatureMeaning}
+                  onChange={(event) => {
+                    setSignatureMeaning(event.target.value as DataEntrySignatureMeaning)
+                  }}
+                >
+                  {DATA_ENTRY_SIGNATURE_MEANINGS.map((meaningOption) => (
+                    <option key={meaningOption} value={meaningOption}>
+                      {meaningOption}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+                <span className="font-medium">Timestamp preview</span>
+                <Input disabled value={formatTimestampLabel(signaturePreviewAt)} />
+              </label>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-4 text-sm text-[color:var(--color-gray-800)]">
+              <p className="text-xs tracking-[0.08em] text-[color:var(--color-gray-600)] uppercase">
+                Electronic record declaration
+              </p>
+              <p className="mt-2 leading-6">
+                By signing, you confirm that this electronic signature is legally equivalent to
+                your handwritten signature for this submitted eCRF record and that the entry should
+                be locked against further edits.
+              </p>
+              <p className="mt-2">
+                Signer: {viewerName ?? 'Current user'} {viewerEmail ? `(${viewerEmail})` : ''}
+              </p>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+              <label className="space-y-2 text-sm text-[color:var(--color-gray-700)]">
+                <span className="font-medium">Password re-entry</span>
+                <Input
+                  autoComplete="current-password"
+                  disabled={isSigning || entry.signatureCount > 0}
+                  placeholder="Re-enter your password"
+                  type="password"
+                  value={signaturePassword}
+                  onChange={(event) => {
+                    setSignaturePassword(event.target.value)
+                  }}
+                />
+              </label>
+
+              <Button
+                disabled={!canCaptureSignature || isSigning || signaturePassword.trim().length === 0}
+                type="button"
+                onClick={handleSignEntry}
+              >
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                {isSigning ? 'Signing...' : 'Sign and lock entry'}
+              </Button>
+            </div>
           </div>
         ) : null}
       </CardHeader>

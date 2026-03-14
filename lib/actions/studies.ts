@@ -6,19 +6,9 @@ import { z } from 'zod'
 
 import { invokeEdgeFunction } from '@/lib/supabase/functions'
 import { getAuthenticatedUser, getServerSupabase } from '@/lib/supabase/server'
-import { PostgresUuidSchema } from '@/lib/validations/identifiers'
 import { CreateStudySchema } from '@/lib/validations/study.schema'
 
 import type { ActionResult } from '@/types/actions'
-
-const CreatedStudySchema = z.object({
-  id: PostgresUuidSchema,
-})
-
-const CreatedSiteSchema = z.object({
-  id: PostgresUuidSchema,
-  site_code: z.string(),
-})
 
 const StudyCreatorProfileSchema = z.object({
   role: z.enum([
@@ -75,10 +65,7 @@ export async function createStudy(raw: unknown): Promise<ActionResult<{ id: stri
 
   const viewerRole = viewerProfile.data.role
 
-  if (
-    typeof viewerRole !== 'string' ||
-    (viewerRole !== 'sponsor' && viewerRole !== 'data_manager' && viewerRole !== 'super_admin')
-  ) {
+  if (viewerRole !== 'sponsor' && viewerRole !== 'data_manager' && viewerRole !== 'super_admin') {
     return {
       success: false,
       error:
@@ -86,9 +73,12 @@ export async function createStudy(raw: unknown): Promise<ActionResult<{ id: stri
     }
   }
 
+  const studyId = crypto.randomUUID()
+
   const studyResult = await supabase
     .from('studies')
     .insert({
+      id: studyId,
       title: parsed.data.title,
       protocol_number: parsed.data.protocolNumber,
       phase: parsed.data.phase,
@@ -100,21 +90,22 @@ export async function createStudy(raw: unknown): Promise<ActionResult<{ id: stri
       start_date: parsed.data.startDate ?? null,
       end_date: parsed.data.endDate ?? null,
     })
-    .select('id')
-    .single()
 
   if (studyResult.error) {
+    if (studyResult.error.message.toLowerCase().includes('row-level security policy')) {
+      return {
+        success: false,
+        error:
+          'You do not have permission to create studies. Ask a sponsor, data manager, or super-admin to create this study.',
+      }
+    }
+
     return { success: false, error: studyResult.error.message }
   }
 
-  const parsedStudy = CreatedStudySchema.safeParse(studyResult.data)
-
-  if (!parsedStudy.success) {
-    return { success: false, error: 'Unable to create study.' }
-  }
-
   const siteRows = parsed.data.sites.map((site) => ({
-    study_id: parsedStudy.data.id,
+    id: crypto.randomUUID(),
+    study_id: studyId,
     name: site.name,
     site_code: site.siteCode,
     country: site.country,
@@ -122,20 +113,14 @@ export async function createStudy(raw: unknown): Promise<ActionResult<{ id: stri
     status: 'pending',
   }))
 
-  const sitesResult = await supabase.from('sites').insert(siteRows).select('id, site_code')
+  const sitesResult = await supabase.from('sites').insert(siteRows)
 
   if (sitesResult.error) {
     return { success: false, error: sitesResult.error.message }
   }
 
-  const parsedSites = CreatedSiteSchema.array().safeParse(sitesResult.data)
-
-  if (!parsedSites.success) {
-    return { success: false, error: 'Unable to create study sites.' }
-  }
-
   if (parsed.data.teamAssignments.length > 0) {
-    const siteIdByCode = new Map(parsedSites.data.map((site) => [site.site_code, site.id]))
+    const siteIdByCode = new Map(siteRows.map((site) => [site.site_code, site.id]))
     const siteAssignments: {
       site_id: string
       user_id: string
@@ -171,7 +156,7 @@ export async function createStudy(raw: unknown): Promise<ActionResult<{ id: stri
       user_id: user.id,
       action: 'study.created',
       entity_type: 'study',
-      entity_id: parsedStudy.data.id,
+      entity_id: studyId,
       old_value: null,
       new_value: parsed.data,
     })
@@ -182,5 +167,5 @@ export async function createStudy(raw: unknown): Promise<ActionResult<{ id: stri
   revalidatePath('/')
   revalidatePath('/studies')
 
-  return { success: true, data: { id: parsedStudy.data.id } }
+  return { success: true, data: { id: studyId } }
 }

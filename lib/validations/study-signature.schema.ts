@@ -1,7 +1,11 @@
 import { z } from 'zod'
 
 import { PostgresUuidSchema } from '@/lib/validations/identifiers'
-import { DOCUMENT_SIGNATURE_MEANINGS, STUDY_SIGNATURE_MEANINGS } from '@/types'
+import {
+  DATA_ENTRY_SIGNATURE_MEANINGS,
+  DOCUMENT_SIGNATURE_MEANINGS,
+  STUDY_SIGNATURE_MEANINGS,
+} from '@/types'
 
 export const SignStudySchema = z.object({
   studyId: PostgresUuidSchema,
@@ -13,5 +17,12 @@ export const SignStudyDocumentSchema = z.object({
   studyId: PostgresUuidSchema,
   documentId: PostgresUuidSchema,
   signatureMeaning: z.enum(DOCUMENT_SIGNATURE_MEANINGS),
+  password: z.string().min(1, 'Re-enter your password to sign'),
+})
+
+export const SignStudyDataEntrySchema = z.object({
+  studyId: PostgresUuidSchema,
+  entryId: PostgresUuidSchema,
+  signatureMeaning: z.enum(DATA_ENTRY_SIGNATURE_MEANINGS),
   password: z.string().min(1, 'Re-enter your password to sign'),
 })
