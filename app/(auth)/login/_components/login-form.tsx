@@ -21,6 +21,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { loginWithPassword, requestPasswordReset, sendMagicLink } from '@/lib/actions/auth'
 import { cn } from '@/lib/utils/cn'
 import {
@@ -40,6 +41,9 @@ type LoginFormProps = {
 /** Handles password and magic-link sign-in flows for approved study users. */
 export function LoginForm({ authError, className }: LoginFormProps) {
   const router = useRouter()
+  const [activeTab, setActiveTab] = useState<'password' | 'magic-link' | 'forgot-password'>(
+    'password',
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSendingLink, setIsSendingLink] = useState(false)
   const [isSendingRecovery, setIsSendingRecovery] = useState(false)
@@ -168,7 +172,7 @@ export function LoginForm({ authError, className }: LoginFormProps) {
         </Card>
       ) : null}
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <p className="text-xs font-medium tracking-[0.08em] text-[color:var(--color-navy-700)] uppercase">
             Secure access
@@ -179,135 +183,158 @@ export function LoginForm({ authError, className }: LoginFormProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Form {...loginForm}>
-            <form className="space-y-5" onSubmit={handleLoginSubmit} noValidate>
-              <FormField
-                control={loginForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        autoComplete="email"
-                        placeholder="operator@clinicalhub.com"
-                        type="email"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={loginForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        autoComplete="current-password"
-                        placeholder="Enter your password"
-                        type="password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Password re-entry is also used for 21 CFR Part 11 signature workflows.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <Tabs
+            className="gap-5"
+            value={activeTab}
+            onValueChange={(value) => {
+              setActiveTab(value as 'password' | 'magic-link' | 'forgot-password')
+            }}
+          >
+            <TabsList className="w-full">
+              <TabsTrigger className="flex-1" value="password">
+                Sign in
+              </TabsTrigger>
+              <TabsTrigger className="flex-1" value="magic-link">
+                Magic link
+              </TabsTrigger>
+              <TabsTrigger className="flex-1" value="forgot-password">
+                Forgot password
+              </TabsTrigger>
+            </TabsList>
 
-              <Button className="w-full" disabled={isSubmitting} type="submit">
-                {isSubmitting ? 'Signing in...' : 'Sign in'}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+            <TabsContent className="space-y-5" value="password">
+              <Form {...loginForm}>
+                <form className="space-y-5" onSubmit={handleLoginSubmit} noValidate>
+                  <FormField
+                    control={loginForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input
+                            autoComplete="email"
+                            placeholder="operator@clinicalhub.com"
+                            type="email"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={loginForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center justify-between gap-2">
+                          <FormLabel>Password</FormLabel>
+                          <button
+                            className="text-xs font-medium text-[color:var(--color-navy-800)] transition hover:text-[color:var(--color-navy-900)]"
+                            onClick={() => {
+                              setActiveTab('forgot-password')
+                            }}
+                            type="button"
+                          >
+                            Forgot password?
+                          </button>
+                        </div>
+                        <FormControl>
+                          <Input
+                            autoComplete="current-password"
+                            placeholder="Enter your password"
+                            type="password"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Password re-entry is also used for 21 CFR Part 11 signature workflows.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-      <Card className="border-[color:var(--color-navy-100)] bg-[color:var(--color-navy-50)]/80">
-        <CardHeader>
-          <CardTitle className="text-xl">Prefer a magic link?</CardTitle>
-          <CardDescription>
-            Use passwordless sign-in for low-friction access on shared clinical site workstations.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...magicLinkForm}>
-            <form className="space-y-5" onSubmit={handleMagicLinkSubmit} noValidate>
-              <FormField
-                control={magicLinkForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        autoComplete="email"
-                        placeholder="operator@clinicalhub.com"
-                        type="email"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <Button className="w-full" disabled={isSubmitting} type="submit">
+                    {isSubmitting ? 'Signing in...' : 'Sign in'}
+                  </Button>
+                </form>
+              </Form>
+            </TabsContent>
 
-              <Button className="w-full" disabled={isSendingLink} type="submit" variant="outline">
-                {isSendingLink ? 'Sending link...' : 'Send magic link'}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+            <TabsContent className="space-y-5" value="magic-link">
+              <div className="rounded-2xl border border-[color:var(--color-navy-100)] bg-[color:var(--color-navy-50)] px-4 py-3 text-sm text-[color:var(--color-gray-700)]">
+                Use passwordless sign-in for quick access on shared clinical site workstations.
+              </div>
+              <Form {...magicLinkForm}>
+                <form className="space-y-5" onSubmit={handleMagicLinkSubmit} noValidate>
+                  <FormField
+                    control={magicLinkForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input
+                            autoComplete="email"
+                            placeholder="operator@clinicalhub.com"
+                            type="email"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">Forgot your password?</CardTitle>
-          <CardDescription>
-            Request a recovery link that lets you set a new password securely.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...forgotPasswordForm}>
-            <form className="space-y-5" noValidate onSubmit={handleForgotPasswordSubmit}>
-              <FormField
-                control={forgotPasswordForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        autoComplete="email"
-                        placeholder="operator@clinicalhub.com"
-                        type="email"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      The recovery link will take you to a secure password reset screen.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <Button className="w-full" disabled={isSendingLink} type="submit" variant="outline">
+                    {isSendingLink ? 'Sending link...' : 'Send magic link'}
+                  </Button>
+                </form>
+              </Form>
+            </TabsContent>
 
-              <Button
-                className="w-full"
-                disabled={isSendingRecovery}
-                type="submit"
-                variant="outline"
-              >
-                {isSendingRecovery ? 'Sending recovery link...' : 'Send recovery link'}
-              </Button>
-            </form>
-          </Form>
+            <TabsContent className="space-y-5" value="forgot-password">
+              <div className="rounded-2xl border border-[color:var(--color-gray-200)] bg-[color:var(--color-gray-50)] px-4 py-3 text-sm text-[color:var(--color-gray-700)]">
+                Request a secure recovery link and reset your password in a few steps.
+              </div>
+              <Form {...forgotPasswordForm}>
+                <form className="space-y-5" noValidate onSubmit={handleForgotPasswordSubmit}>
+                  <FormField
+                    control={forgotPasswordForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input
+                            autoComplete="email"
+                            placeholder="operator@clinicalhub.com"
+                            type="email"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          The recovery link will take you to a secure password reset screen.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Button
+                    className="w-full"
+                    disabled={isSendingRecovery}
+                    type="submit"
+                    variant="outline"
+                  >
+                    {isSendingRecovery ? 'Sending recovery link...' : 'Send recovery link'}
+                  </Button>
+                </form>
+              </Form>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>

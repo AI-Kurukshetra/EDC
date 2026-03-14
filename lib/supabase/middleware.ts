@@ -5,7 +5,7 @@ import { createServerClient } from '@supabase/ssr'
 import { getOptionalPublicEnv } from '@/lib/env'
 
 const AUTH_ROUTES = ['/login', '/register']
-const PUBLIC_ROUTES = ['/login', '/register', '/reset-password', '/auth/callback']
+const PUBLIC_ROUTES = ['/', '/login', '/register', '/reset-password', '/auth/callback']
 const ADMIN_ROUTE_PREFIX = '/admin'
 const STUDY_CREATE_ROUTE = '/studies/new'
 
@@ -44,7 +44,15 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const pathname = request.nextUrl.pathname
-  const isPublicRoute = PUBLIC_ROUTES.includes(pathname)
+  const normalizedPathname =
+    pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
+  const isPublicRoute = PUBLIC_ROUTES.some((route) => {
+    if (route === '/') {
+      return normalizedPathname === '/'
+    }
+
+    return normalizedPathname === route || normalizedPathname.startsWith(`${route}/`)
+  })
 
   if (!user && !isPublicRoute) {
     const redirectUrl = request.nextUrl.clone()
@@ -53,15 +61,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  if (user && AUTH_ROUTES.includes(pathname)) {
+  if (user && AUTH_ROUTES.includes(normalizedPathname)) {
     const redirectUrl = request.nextUrl.clone()
-    redirectUrl.pathname = '/'
+    redirectUrl.pathname = '/studies'
     return NextResponse.redirect(redirectUrl)
   }
 
   const isAdminRoute =
-    pathname === ADMIN_ROUTE_PREFIX || pathname.startsWith(`${ADMIN_ROUTE_PREFIX}/`)
-  const isStudyCreateRoute = pathname === STUDY_CREATE_ROUTE
+    normalizedPathname === ADMIN_ROUTE_PREFIX ||
+    normalizedPathname.startsWith(`${ADMIN_ROUTE_PREFIX}/`)
+  const isStudyCreateRoute = normalizedPathname === STUDY_CREATE_ROUTE
 
   if (user && (isAdminRoute || isStudyCreateRoute)) {
     const { data: profile, error: profileError } = await supabase
