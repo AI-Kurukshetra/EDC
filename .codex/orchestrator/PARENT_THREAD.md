@@ -49,7 +49,7 @@ Keep this file compact:
 
 ## Active Objective
 
-- Continue `/studies/[studyId]/forms` product work now that the remote schema and demo data are live.
+- Finish the remaining Phase 1 study operations surface and then run one end-of-phase verification pass.
 
 ## Current State
 
@@ -127,9 +127,30 @@ Keep this file compact:
     - `/register` -> `200`
     - `/studies` -> `307` to login when signed out
     - `/studies/new` -> `307` to login when signed out
+- Rendered eCRF data-entry workflow is now functionally connected:
+  - `/studies/[studyId]/data` renders a live subject/form/visit workspace instead of a placeholder
+  - CRF submission now invokes the existing `generate-queries` edge function so out-of-range or missing values raise automated queries after submit
+- Placeholder study tabs have been replaced with live Phase 1 operations views backed by shared study queries:
+  - `/studies/[studyId]/subjects`
+  - `/studies/[studyId]/queries`
+  - `/studies/[studyId]/sites`
+  - `/studies/[studyId]/users`
+  - `/studies/[studyId]/audit`
+  - `/studies/[studyId]/export`
+- Study export functionality is now wired:
+  - added a server action that requests signed export jobs through the `export-data` edge function
+  - the export screen shows current study scope and export history, and can generate CSV / JSON / CDISC downloads
+- This child pass intentionally skipped interim repo gates at the user's request in order to finish the remaining Phase 1 functionality first.
 
 ## Current Blockers
 
+- End-of-phase verification has not been rerun after the new study-operations pass:
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm format:check`
+  - `pnpm build`
+  - production runtime restart / smoke check on the fresh build
 - Remote migration history is not yet recorded in `supabase_migrations`, so future CLI-style migration reconciliation will need a repair step.
 - `types/database.types.ts` is still the temporary placeholder and should be regenerated from the now-live schema when a clean type-generation path is available.
 - In-thread Supabase MCP tools are still tied to older session bootstrap state, so fresh child processes or direct Management API calls remain the reliable remote-admin paths.
@@ -137,11 +158,25 @@ Keep this file compact:
 
 ## Exact Next Steps
 
-1. Continue CRF/forms development on `/studies/[studyId]/forms` now that published-version rules are enforced on both the client and server.
-2. Regenerate `types/database.types.ts` from the live schema when convenient.
-3. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
-4. Decide whether to silence the Next.js multi-lockfile warning by cleaning the parent `package-lock.json` situation or restoring a safe `outputFileTracingRoot`.
-5. Keep gates green after each forms/CRF change, then resume the downstream data-entry / rendered eCRF workflow on `/studies/[studyId]/data`.
+1. Run the deferred end-of-phase verification set:
+
+- `pnpm typecheck`
+- `pnpm lint`
+- `pnpm test`
+- `pnpm format:check`
+- `pnpm build`
+
+2. Restart the production server on `127.0.0.1:3001` from the new build and smoke-test the study routes, especially:
+
+- `/studies/[studyId]/data`
+- `/studies/[studyId]/subjects`
+- `/studies/[studyId]/queries`
+- `/studies/[studyId]/export`
+
+3. Fix any issues found in the end-of-phase verification pass.
+4. Regenerate `types/database.types.ts` from the live schema when convenient.
+5. Repair or backfill `supabase_migrations` before relying on CLI / migration-history workflows again.
+6. Decide whether to silence the Next.js multi-lockfile warning by cleaning the parent `package-lock.json` situation or restoring a safe `outputFileTracingRoot`.
 
 ## Supabase Status
 
@@ -154,6 +189,9 @@ Keep this file compact:
 - Remote project `voevnebhnwqeslgpzauo` now has the application schema and demo data.
 - `supabase_migrations` is still empty because the migrations were applied through the Management API rather than a tracked CLI push.
 - Seeded deterministic UUID fixture ids are now handled by shared Postgres-compatible validation instead of strict RFC-variant checks.
+- Export and auto-query edge functions are now wired into the study workflows from the app layer:
+  - `generate-queries` is invoked after eCRF submission
+  - `export-data` is invoked from the new study export action
 - Remote seed credentials are verified with these demo logins:
   - `sponsor@clinicalhub.dev / Password123!`
   - `investigator@clinicalhub.dev / Password123!`

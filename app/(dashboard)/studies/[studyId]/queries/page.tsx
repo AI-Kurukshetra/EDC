@@ -1,13 +1,14 @@
-import { EmptyState } from '@/components/data-display/EmptyState'
+import { StudyQueriesWorkspace } from '@/components/studies/study-queries-workspace'
+import { getStudyQueriesWorkspace } from '@/lib/queries/study-operations'
 
-type StudyQueriesPageProps = Record<string, never>
+type StudyQueriesPageProps = {
+  params: Promise<{ studyId: string }>
+}
 
-/** Reserves the study query management route for future implementation. */
-export default function StudyQueriesPage(_props: StudyQueriesPageProps) {
-  return (
-    <EmptyState
-      title="Query management route ready"
-      description="This screen will host field-level query threads, assignment workflows, and monitor/data-manager resolution queues."
-    />
-  )
+/** Renders the study-level query queue with current ownership and response state. */
+export default async function StudyQueriesPage({ params }: StudyQueriesPageProps) {
+  const { studyId } = await params
+  const queries = await getStudyQueriesWorkspace(studyId)
+
+  return <StudyQueriesWorkspace queries={queries} />
 }

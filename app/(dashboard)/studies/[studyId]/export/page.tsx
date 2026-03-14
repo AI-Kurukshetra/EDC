@@ -1,13 +1,14 @@
-import { EmptyState } from '@/components/data-display/EmptyState'
+import { StudyExportWorkspace } from '@/components/studies/study-export-workspace'
+import { getStudyExportWorkspace } from '@/lib/queries/study-operations'
 
-type StudyExportPageProps = Record<string, never>
+type StudyExportPageProps = {
+  params: Promise<{ studyId: string }>
+}
 
-/** Reserves the study export workflow surface for future implementation. */
-export default function StudyExportPage(_props: StudyExportPageProps) {
-  return (
-    <EmptyState
-      title="Export route ready"
-      description="This module will orchestrate background export jobs, signed download links, and export history."
-    />
-  )
+/** Renders the study export console and recent export history. */
+export default async function StudyExportPage({ params }: StudyExportPageProps) {
+  const { studyId } = await params
+  const workspace = await getStudyExportWorkspace(studyId)
+
+  return <StudyExportWorkspace workspace={workspace} />
 }

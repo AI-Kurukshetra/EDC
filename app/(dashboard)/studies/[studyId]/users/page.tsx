@@ -1,13 +1,14 @@
-import { EmptyState } from '@/components/data-display/EmptyState'
+import { StudyUsersWorkspace } from '@/components/studies/study-users-workspace'
+import { getStudyUsersWorkspace } from '@/lib/queries/study-operations'
 
-type StudyUsersPageProps = Record<string, never>
+type StudyUsersPageProps = {
+  params: Promise<{ studyId: string }>
+}
 
-/** Reserves the study user assignment route for future implementation. */
-export default function StudyUsersPage(_props: StudyUsersPageProps) {
-  return (
-    <EmptyState
-      title="User assignment route ready"
-      description="This route will manage role approvals, site-user mapping, and access reviews for each study."
-    />
-  )
+/** Renders the study sponsor and site-user assignment roster. */
+export default async function StudyUsersPage({ params }: StudyUsersPageProps) {
+  const { studyId } = await params
+  const users = await getStudyUsersWorkspace(studyId)
+
+  return <StudyUsersWorkspace users={users} />
 }

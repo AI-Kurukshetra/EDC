@@ -1,13 +1,14 @@
-import { EmptyState } from '@/components/data-display/EmptyState'
+import { StudySitesWorkspace } from '@/components/studies/study-sites-workspace'
+import { getStudySitesWorkspace } from '@/lib/queries/study-operations'
 
-type StudySitesPageProps = Record<string, never>
+type StudySitesPageProps = {
+  params: Promise<{ studyId: string }>
+}
 
-/** Reserves the study site administration route for future implementation. */
-export default function StudySitesPage(_props: StudySitesPageProps) {
-  return (
-    <EmptyState
-      title="Site management route ready"
-      description="Use this module for site activation, PI assignment, enrollment tracking, and site-specific access control."
-    />
-  )
+/** Renders the study site operations view with rollout and workload metrics. */
+export default async function StudySitesPage({ params }: StudySitesPageProps) {
+  const { studyId } = await params
+  const sites = await getStudySitesWorkspace(studyId)
+
+  return <StudySitesWorkspace sites={sites} />
 }

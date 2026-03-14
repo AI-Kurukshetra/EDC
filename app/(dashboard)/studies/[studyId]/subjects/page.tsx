@@ -1,13 +1,14 @@
-import { EmptyState } from '@/components/data-display/EmptyState'
+import { StudySubjectsWorkspace } from '@/components/studies/study-subjects-workspace'
+import { getStudySubjectsWorkspace } from '@/lib/queries/study-operations'
 
-type StudySubjectsPageProps = Record<string, never>
+type StudySubjectsPageProps = {
+  params: Promise<{ studyId: string }>
+}
 
-/** Reserves the study subject management route for future implementation. */
-export default function StudySubjectsPage(_props: StudySubjectsPageProps) {
-  return (
-    <EmptyState
-      title="Subject management route ready"
-      description="This route will host enrollment, consent capture, visit timelines, and withdrawal workflows."
-    />
-  )
+/** Renders the study subject roster and data-capture summary view. */
+export default async function StudySubjectsPage({ params }: StudySubjectsPageProps) {
+  const { studyId } = await params
+  const subjects = await getStudySubjectsWorkspace(studyId)
+
+  return <StudySubjectsWorkspace subjects={subjects} />
 }

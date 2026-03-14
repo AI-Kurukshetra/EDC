@@ -1,13 +1,14 @@
-import { EmptyState } from '@/components/data-display/EmptyState'
+import { StudyAuditWorkspace } from '@/components/studies/study-audit-workspace'
+import { getStudyAuditWorkspace } from '@/lib/queries/study-operations'
 
-type StudyAuditPageProps = Record<string, never>
+type StudyAuditPageProps = {
+  params: Promise<{ studyId: string }>
+}
 
-/** Reserves the study-specific audit trail workspace for future implementation. */
-export default function StudyAuditPage(_props: StudyAuditPageProps) {
-  return (
-    <EmptyState
-      title="Audit trail route ready"
-      description="Audit log search, filtering, diff rendering, and export workflows will live here."
-    />
-  )
+/** Renders the study-scoped audit trail available for oversight review. */
+export default async function StudyAuditPage({ params }: StudyAuditPageProps) {
+  const { studyId } = await params
+  const events = await getStudyAuditWorkspace(studyId)
+
+  return <StudyAuditWorkspace events={events} />
 }

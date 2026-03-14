@@ -2,14 +2,14 @@
 
 ## Active Child Task
 
-- Continue `/studies/[studyId]/forms` CRF builder development on top of the live remote schema and seeded demo data now that published-version rules are enforced on both the client and server.
+- Run the deferred end-of-phase verification pass for the new Phase 1 study-operations surfaces and fix anything it exposes.
 - Regenerate `types/database.types.ts` when a clean generation path is available.
 - Repair / backfill `supabase_migrations` before relying on CLI migration-history workflows again.
 - Keep gates green after each forms / CRF change and keep an eye on the non-blocking Next.js multi-lockfile warning during production builds.
 
 ## Next Child Tasks
 
-- Resume the downstream rendered eCRF and data-entry workflow on `/studies/[studyId]/data`.
+- Decide whether Phase 1 needs any additional polish after the full verification pass.
 - Refresh `PARENT_THREAD.md` at every handoff.
 
 ## Parked
