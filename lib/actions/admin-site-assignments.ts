@@ -47,7 +47,19 @@ const SiteAssignmentRowSchema = z.object({
   role: z.enum(USER_ROLES),
 })
 
-async function getValidatedAdminViewer() {
+type ValidatedAdminViewerResult =
+  | {
+      error: string
+      viewer: null
+      supabase: null
+    }
+  | {
+      error: null
+      viewer: z.infer<typeof ViewerProfileSchema>
+      supabase: Awaited<ReturnType<typeof getServerSupabase>>
+    }
+
+async function getValidatedAdminViewer(): Promise<ValidatedAdminViewerResult> {
   const user = await getAuthenticatedUser()
 
   if (!user) {
@@ -117,8 +129,8 @@ export async function assignAdminUserSite(
 
   const adminContext = await getValidatedAdminViewer()
 
-  if (adminContext.error || !adminContext.viewer || !adminContext.supabase) {
-    return { success: false, error: adminContext.error ?? 'Unable to validate your admin session.' }
+  if (adminContext.error !== null) {
+    return { success: false, error: adminContext.error }
   }
 
   const { supabase, viewer } = adminContext
@@ -179,7 +191,7 @@ export async function assignAdminUserSite(
     return { success: false, error: 'Unable to validate the target study for this site.' }
   }
 
-  const previousRole = existingAssignment?.success ? existingAssignment.data.role : null
+  const previousRole = existingAssignment ? existingAssignment.data.role : null
   const isUpdate = previousRole !== null
 
   if (previousRole === parsed.data.role) {
@@ -270,8 +282,8 @@ export async function removeAdminUserSiteAssignment(
 
   const adminContext = await getValidatedAdminViewer()
 
-  if (adminContext.error || !adminContext.viewer || !adminContext.supabase) {
-    return { success: false, error: adminContext.error ?? 'Unable to validate your admin session.' }
+  if (adminContext.error !== null) {
+    return { success: false, error: adminContext.error }
   }
 
   const { supabase, viewer } = adminContext

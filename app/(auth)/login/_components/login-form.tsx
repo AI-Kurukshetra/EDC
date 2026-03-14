@@ -3,7 +3,7 @@
 import type { SyntheticEvent } from 'react'
 import { startTransition, useState } from 'react'
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -33,17 +33,16 @@ import {
 } from '@/lib/validations/auth.schema'
 
 type LoginFormProps = {
+  authError?: string | undefined
   className?: string
 }
 
 /** Handles password and magic-link sign-in flows for approved study users. */
-export function LoginForm({ className }: LoginFormProps) {
+export function LoginForm({ authError, className }: LoginFormProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSendingLink, setIsSendingLink] = useState(false)
   const [isSendingRecovery, setIsSendingRecovery] = useState(false)
-  const authError = searchParams.get('error')
 
   const loginForm = useForm<LoginInput>({
     resolver: zodResolver(LoginSchema),

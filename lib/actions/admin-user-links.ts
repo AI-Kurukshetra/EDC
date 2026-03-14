@@ -1,7 +1,7 @@
 'use server'
 
-import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 
 import { z } from 'zod'
 
@@ -9,14 +9,13 @@ import { getPublicEnv } from '@/lib/env'
 import { getAdminSupabase } from '@/lib/supabase/admin'
 import { invokeEdgeFunction } from '@/lib/supabase/functions'
 import { getAuthenticatedUser, getServerSupabase } from '@/lib/supabase/server'
-import {
-  AdminUserLinkTypeSchema,
-  GenerateAdminUserAccessLinkSchema,
-} from '@/lib/validations/admin-user-link.schema'
+import { GenerateAdminUserAccessLinkSchema } from '@/lib/validations/admin-user-link.schema'
 import { PostgresUuidSchema } from '@/lib/validations/identifiers'
 import { USER_ROLES } from '@/types'
 
 import type { ActionResult } from '@/types/actions'
+
+type AdminUserLinkType = 'magiclink' | 'recovery'
 
 const ViewerProfileSchema = z.object({
   id: PostgresUuidSchema,
@@ -31,11 +30,11 @@ const TargetProfileSchema = z.object({
   is_active: z.boolean(),
 })
 
-function getCallbackNextPath(linkType: z.infer<typeof AdminUserLinkTypeSchema>) {
+function getCallbackNextPath(linkType: AdminUserLinkType) {
   return linkType === 'recovery' ? '/reset-password' : '/'
 }
 
-async function getAccessLinkRedirectUrl(linkType: z.infer<typeof AdminUserLinkTypeSchema>) {
+async function getAccessLinkRedirectUrl(linkType: AdminUserLinkType) {
   const env = getPublicEnv()
   const headerStore = await headers()
   const origin = headerStore.get('origin') ?? env.NEXT_PUBLIC_APP_URL

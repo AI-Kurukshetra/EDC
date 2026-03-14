@@ -56,11 +56,7 @@ export async function updateAdminStudyGovernance(
 
   const supabase = await getServerSupabase()
   const [viewerResult, studyResult, sponsorResult] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('id, full_name, role, is_active')
-      .eq('id', user.id)
-      .single(),
+    supabase.from('profiles').select('id, full_name, role, is_active').eq('id', user.id).single(),
     supabase
       .from('studies')
       .select('id, title, sponsor_id, status')

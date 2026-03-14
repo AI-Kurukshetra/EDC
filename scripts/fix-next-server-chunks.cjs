@@ -22,11 +22,7 @@ for (const fileName of fs.readdirSync(chunksDir)) {
 
 function getRouteKeyFromNftPath(nftPath) {
   const parentDir = path.dirname(nftPath)
-  const routeSegments = path
-    .relative(appDir, parentDir)
-    .split(path.sep)
-    .filter(Boolean)
-    .join('/')
+  const routeSegments = path.relative(appDir, parentDir).split(path.sep).filter(Boolean).join('/')
 
   return routeSegments ? `/${routeSegments}/page` : '/page'
 }

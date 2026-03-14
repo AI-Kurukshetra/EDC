@@ -229,7 +229,9 @@ function AdminUserSiteAssignmentControls({
   function handleSiteChange(nextSiteId: string) {
     setSiteId(nextSiteId)
 
-    const existingAssignment = user.siteAssignments.find((assignment) => assignment.siteId === nextSiteId)
+    const existingAssignment = user.siteAssignments.find(
+      (assignment) => assignment.siteId === nextSiteId,
+    )
 
     setRole(existingAssignment?.role ?? 'coordinator')
   }
@@ -658,7 +660,7 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceProps) {
   )
   const selectedProvisionSite =
     provisionSiteId.length > 0
-      ? workspace.sites.find((site) => site.id === provisionSiteId) ?? null
+      ? (workspace.sites.find((site) => site.id === provisionSiteId) ?? null)
       : null
 
   function resetProvisionComposer() {
@@ -860,7 +862,8 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceProps) {
           <CardHeader>
             <CardTitle>Provision user</CardTitle>
             <CardDescription>
-              Create a new platform account with a temporary password and optionally attach the user to an existing site.
+              Create a new platform account with a temporary password and optionally attach the user
+              to an existing site.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -967,21 +970,19 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceProps) {
                 New accounts are created active and email-confirmed.
               </p>
               <p className="mt-2">
-                Share the temporary password directly with the user and ask them to rotate it after first sign-in.
+                Share the temporary password directly with the user and ask them to rotate it after
+                first sign-in.
               </p>
               {selectedProvisionSite ? (
                 <p className="mt-2 text-[color:var(--color-gray-600)]">
-                  Selected site: {selectedProvisionSite.siteCode} in {selectedProvisionSite.studyTitle}
+                  Selected site: {selectedProvisionSite.siteCode} in{' '}
+                  {selectedProvisionSite.studyTitle}
                 </p>
               ) : null}
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-              <Button
-                disabled={isProvisioning}
-                variant="outline"
-                onClick={resetProvisionComposer}
-              >
+              <Button disabled={isProvisioning} variant="outline" onClick={resetProvisionComposer}>
                 Reset
               </Button>
               <Button
@@ -1248,8 +1249,8 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceProps) {
         <CardHeader>
           <CardTitle>Study governance</CardTitle>
           <CardDescription>
-            Reassign sponsor ownership and update live study status without leaving the platform
-            ops workspace.
+            Reassign sponsor ownership and update live study status without leaving the platform ops
+            workspace.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -1262,7 +1263,9 @@ export function AdminWorkspaceView({ workspace }: AdminWorkspaceProps) {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium text-[color:var(--color-gray-900)]">{study.title}</p>
+                      <p className="font-medium text-[color:var(--color-gray-900)]">
+                        {study.title}
+                      </p>
                       <Badge variant={STUDY_STATUS_VARIANTS[study.status]}>
                         {formatStudyStatus(study.status)}
                       </Badge>

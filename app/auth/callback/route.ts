@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { createServerClient } from '@supabase/ssr'
-import { type EmailOtpType } from '@supabase/supabase-js'
 
 import { getOptionalPublicEnv } from '@/lib/env'
+
+import type { EmailOtpType } from '@supabase/supabase-js'
 
 const OTP_TYPES: EmailOtpType[] = ['signup', 'invite', 'magiclink', 'recovery', 'email']
 

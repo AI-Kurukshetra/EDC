@@ -89,10 +89,10 @@ export async function provisionAdminUser(
     },
   })
 
-  if (createUserResult.error || !createUserResult.data.user) {
+  if (createUserResult.error) {
     return {
       success: false,
-      error: createUserResult.error?.message ?? 'Unable to provision the requested user.',
+      error: createUserResult.error.message,
     }
   }
 

@@ -23,10 +23,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { getBrowserSupabase } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils/cn'
-import {
-  ResetPasswordSchema,
-  type ResetPasswordInput,
-} from '@/lib/validations/auth.schema'
+import { ResetPasswordSchema, type ResetPasswordInput } from '@/lib/validations/auth.schema'
 
 type ResetPasswordFormProps = {
   className?: string
@@ -48,25 +45,15 @@ export function ResetPasswordForm({ className }: ResetPasswordFormProps) {
   })
 
   useEffect(() => {
-    let isMounted = true
-
     void (async () => {
       const supabase = getBrowserSupabase()
       const {
         data: { session },
       } = await supabase.auth.getSession()
 
-      if (!isMounted) {
-        return
-      }
-
       setHasRecoverySession(Boolean(session))
       setIsReady(true)
     })()
-
-    return () => {
-      isMounted = false
-    }
   }, [])
 
   function handleSubmit(values: ResetPasswordInput) {
@@ -109,7 +96,8 @@ export function ResetPasswordForm({ className }: ResetPasswordFormProps) {
           </p>
           <CardTitle>Password reset link required</CardTitle>
           <CardDescription>
-            Open the latest recovery link from your email or request a new one from the sign-in page.
+            Open the latest recovery link from your email or request a new one from the sign-in
+            page.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -156,7 +144,8 @@ export function ResetPasswordForm({ className }: ResetPasswordFormProps) {
                     />
                   </FormControl>
                   <FormDescription>
-                    Use at least eight characters. You will use this same credential in signature confirmation flows.
+                    Use at least eight characters. You will use this same credential in signature
+                    confirmation flows.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
